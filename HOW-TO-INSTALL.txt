@@ -1,0 +1,21 @@
+Как поставить «Опору» на Android (всё делается с телефона)
+
+Вариант А: Netlify (быстрее)
+1. В Chrome откройте app.netlify.com/drop (нужен вход: можно через Google).
+2. Нажмите «browse to upload» и выберите файл opora-site.zip.
+   Если сайт просит именно папку, используйте вариант Б.
+3. Получите ссылку вида https://что-то.netlify.app и откройте её в Chrome.
+4. Меню ⋮ > «Установить приложение» > «Установить».
+
+Вариант Б: GitHub Pages (надёжнее)
+1. Зарегистрируйтесь на github.com, нажмите + > New repository, имя opora, Public, Create.
+2. «uploading an existing file»: загрузите ВСЕ файлы из архива (index.html, sw.js, manifest.webmanifest, три png). Commit changes.
+3. Settings > Pages > Source: Deploy from a branch > main / root > Save.
+4. Через минуту ссылка: https://ВАШ-ЛОГИН.github.io/opora/ Откройте в Chrome и установите, как в п. 4 выше.
+
+Настоящий APK (по желанию): pwabuilder.com > вставьте ссылку > Package for stores > Android.
+
+Важно
+- Данные хранятся только на телефоне. Делайте копию: «Ещё» > «Отчёт и данные» > «Скачать копию (JSON)».
+- Очистка данных Chrome удалит записи.
+- Облачное сохранение и ИИ-помощник работают только внутри Claude.
