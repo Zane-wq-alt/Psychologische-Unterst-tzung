@@ -1,0 +1,5 @@
+{
+  "ci": [{"d":"2026-02-01","n":"partial fixture"}],
+  "p": {"name":"Partial profile"},
+  "unknownFutureData": ["must","survive"]
+}
