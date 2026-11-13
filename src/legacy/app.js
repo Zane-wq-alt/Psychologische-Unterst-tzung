@@ -21,7 +21,7 @@ rt:{morning:["Вода","Еда","Одежда, комфортная по ощу
 st:{task:"",steps:[]},ui:{fs:1,th:"auto",q:0,fav:[],simple:0,rem:[{id:"ci",t:"20:00",on:0,n:"Опора: чек-ин",tx:"Как ты сейчас? Один тап, и запись готова."},{id:"water",t:"12:00",on:0,n:"Опора: вода и перекус",tx:"Вода и что-нибудь съедобное."},{id:"med",t:"09:00",on:0,n:"Опора: лекарства и план",tx:"Загляни в список на сегодня."}],dm:["en","sens","anx"],dr:14,sfx:0,bsnd:0,snd:{vol:40,mix:{},tm:0}},
 p:{name:"",goal:"",sens:[],trig:[],stims:"",safe:"",media:"",interests:"",style:"смешанно",signs:"",helps:"",bad:"",shut:"",people:"",meds:"",spoons:12}};
 function migrate(s){var d=clone(DEF);s=s&&typeof s=="object"?s:{};for(var k in d){if(s[k]==null)s[k]=d[k];else if(d[k]&&typeof d[k]=="object"&&!Array.isArray(d[k])){for(var j in d[k])if(s[k][j]==null)s[k][j]=d[k][j]}}["ci","ep","ev","chat","notes","cc","cp"].forEach(function(k){if(!Array.isArray(s[k]))s[k]=[]});if(!Array.isArray(s.p.sens))s.p.sens=[];if(!Array.isArray(s.p.trig))s.p.trig=[];if(!Array.isArray(s.ui.dm))s.ui.dm=["en","sens","anx"];return s}
-var S;try{S=migrate(JSON.parse(localStorage.getItem(KEY)))}catch(e){S=migrate(null)}try{rollSp(true)}catch(e){}
+var S;try{S=migrate(JSON.parse(localStorage.getItem(KEY)));delete S.ts}catch(e){S=migrate(null)}try{rollSp(true)}catch(e){}
 var localOK=false,lsT=0;function saveLocal(){try{localStorage.setItem(KEY,JSON.stringify(S));return true}catch(e){return false}}localOK=saveLocal()||false;
 function setCS(){var e=$("cs");if(e)e.textContent=localOK?"Сохранено на устройстве":"Не удалось сохранить локально — скачайте копию и проверьте свободное место"}
 function saveSoon(){if(lsT)return;lsT=setTimeout(function(){lsT=0;localOK=saveLocal()||false;setCS()},300)}
