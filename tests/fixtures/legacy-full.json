@@ -1,0 +1,12 @@
+{
+  "ci": [{"d":"2026-01-02","mood":3,"n":"sample check-in"}],
+  "ep": [{"d":"2026-01-03","ty":"overload","n":"sample episode"}],
+  "ev": [{"d":"2026-01-04","title":"sample event"}],
+  "chat": [{"r":"u","c":"archived sample"}],
+  "notes": [{"t":"saved note","d":"2026-01-05"}],
+  "cc": [{"id":"custom-card"}],
+  "cp": [{"id":"custom-phrase"}],
+  "p": {"name":"Sample","sens":["noise"],"customProfileField":{"keep":true}},
+  "ui": {"th":"dark","dm":["sens"],"customUiField":"keep"},
+  "customTopLevel": {"futureField":42}
+}
