@@ -158,3 +158,14 @@ test("unsupported future schema is left untouched", () => {
   assert.equal(result.status, "unsupported-version");
   assert.equal(storage.getItem("opora_v2"), raw);
 });
+
+test("unavailable browser storage is reported without crashing", () => {
+  const db = OporaStorage.create({ defaults });
+  const result = db.load();
+
+  assert.equal(result.ok, false);
+  assert.equal(result.blocked, true);
+  assert.equal(result.status, "read-failed");
+  assert.equal(db.raw(), null);
+  assert.deepEqual(db.listBackups(), []);
+});
