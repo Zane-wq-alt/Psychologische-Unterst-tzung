@@ -1,6 +1,5 @@
-var C="opora-v10",F=["./","./index.html","./manifest.webmanifest","./icon-192.png","./icon-512.png"];
-self.addEventListener("install",function(e){e.waitUntil(caches.open(C).then(function(c){return c.addAll(F)}).then(function(){return self.skipWaiting()}))});
-self.addEventListener("activate",function(e){e.waitUntil(caches.keys().then(function(k){return Promise.all(k.filter(function(x){return x!==C}).map(function(x){return caches.delete(x)}))}).then(function(){return self.clients.claim()}))});
-self.addEventListener("fetch",function(e){if(e.request.method!=="GET")return;var u=new URL(e.request.url);
- if(u.origin!==location.origin){e.respondWith(fetch(e.request).catch(function(){return new Response("",{status:204})}));return}
- e.respondWith(caches.match(e.request).then(function(r){var n=fetch(e.request).then(function(x){if(x&&x.ok){var y=x.clone();caches.open(C).then(function(c){c.put(e.request,y)})}return x}).catch(function(){return r||caches.match("./index.html")});return r||n}))});
+const CACHE = "opora-v11";
+const FILES = ["./","./index.html","./manifest.webmanifest","./src/ui/legacy.css","./src/legacy/app.js","./icon-192.png","./icon-512.png","./icon-maskable.png"];
+self.addEventListener("install", event => { event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(FILES)).then(() => self.skipWaiting())); });
+self.addEventListener("activate", event => { event.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(key => key.startsWith("opora-") && key !== CACHE).map(key => caches.delete(key)))).then(() => self.clients.claim())); });
+self.addEventListener("fetch", event => { if (event.request.method !== "GET") return; const url = new URL(event.request.url); if (url.origin !== self.location.origin) return; event.respondWith(caches.match(event.request).then(cached => { const fresh = fetch(event.request).then(response => { if (response && response.ok) { const copy = response.clone(); caches.open(CACHE).then(cache => cache.put(event.request, copy)); } return response; }).catch(() => cached || caches.match("./index.html")); return cached || fresh; })); });
