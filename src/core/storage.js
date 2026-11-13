@@ -132,11 +132,15 @@
       var parsed;
       try {
         parsed = JSON.parse(raw);
+      } catch (error) {
+        return { ok: false, blocked: true, status: "corrupt-data", state: fresh(), raw: raw, error: error, backupKey: null };
+      }
+      try {
         validateState(parsed);
       } catch (error) {
         return {
           ok: false, blocked: true,
-          status: error && error.message === "unsupported-schema-version" ? "unsupported-version" : "corrupt-data",
+          status: error && error.message === "unsupported-schema-version" ? "unsupported-version" : "invalid-data",
           state: fresh(), raw: raw, error: error, backupKey: null
         };
       }
