@@ -58,8 +58,19 @@
     options = options || {};
     var key = options.key || "opora_v2";
     var defaults = options.defaults || {};
-    var storage = options.storage || (typeof localStorage !== "undefined" ? localStorage : null);
-    if (!storage) throw new Error("storage-unavailable");
+    var storage = options.storage || null;
+    if (!storage) {
+      try { if (typeof localStorage !== "undefined") storage = localStorage; } catch (_) {}
+    }
+    if (!storage) {
+      storage = {
+        get length() { throw new Error("storage-unavailable"); },
+        key: function () { throw new Error("storage-unavailable"); },
+        getItem: function () { throw new Error("storage-unavailable"); },
+        setItem: function () { throw new Error("storage-unavailable"); },
+        removeItem: function () { throw new Error("storage-unavailable"); }
+      };
+    }
 
     function fresh() {
       var state = copy(defaults);
@@ -200,16 +211,18 @@
 
     function listBackups() {
       var items = [];
-      for (var i = 0; i < storage.length; i += 1) {
-        var name = storage.key(i);
-        if (!name || name.indexOf(BACKUP_PREFIX) !== 0) continue;
-        try {
-          var entry = JSON.parse(storage.getItem(name));
-          items.push({ key: name, createdAt: entry.createdAt || "", reason: entry.reason || "" });
-        } catch (_) {
-          items.push({ key: name, createdAt: "", reason: "unreadable-backup" });
+      try {
+        for (var i = 0; i < storage.length; i += 1) {
+          var name = storage.key(i);
+          if (!name || name.indexOf(BACKUP_PREFIX) !== 0) continue;
+          try {
+            var entry = JSON.parse(storage.getItem(name));
+            items.push({ key: name, createdAt: entry.createdAt || "", reason: entry.reason || "" });
+          } catch (_) {
+            items.push({ key: name, createdAt: "", reason: "unreadable-backup" });
+          }
         }
-      }
+      } catch (_) { return []; }
       return items.sort(function (a, b) { return a.key < b.key ? 1 : -1; });
     }
 
@@ -247,7 +260,8 @@
     }
 
     function raw() {
-      return storage.getItem(key);
+      try { return storage.getItem(key); }
+      catch (_) { return null; }
     }
 
     return {
