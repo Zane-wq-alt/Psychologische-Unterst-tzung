@@ -169,3 +169,34 @@ test("unavailable browser storage is reported without crashing", () => {
   assert.equal(db.raw(), null);
   assert.deepEqual(db.listBackups(), []);
 });
+
+
+test("regular save preserves the previous value if storage write fails", () => {
+  const raw = JSON.stringify({ ci: [{ d: "previous" }] });
+  const storage = memoryStorage({ opora_v2: raw });
+  const originalSet = storage.setItem;
+  let failOnce = true;
+  storage.setItem = function (key, value) {
+    if (key === "opora_v2" && failOnce) {
+      failOnce = false;
+      throw new Error("quota");
+    }
+    originalSet.call(storage, key, value);
+  };
+  const db = OporaStorage.create({ defaults, storage });
+  const result = db.save({ ci: [{ d: "new" }] });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.error, "write-failed");
+  assert.equal(storage.getItem("opora_v2"), raw);
+});
+
+test("regular save does not create a backup on every autosave", () => {
+  const storage = memoryStorage({ opora_v2: JSON.stringify({ ci: [{ d: "old" }] }) });
+  const db = OporaStorage.create({ defaults, storage });
+  const result = db.save({ ci: [{ d: "new" }] });
+
+  assert.equal(result.ok, true);
+  assert.equal(JSON.parse(storage.getItem("opora_v2")).ci[0].d, "new");
+  assert.equal(db.listBackups().length, 0);
+});
