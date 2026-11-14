@@ -174,13 +174,30 @@
     }
 
     function save(state) {
+      var normalized;
       try {
         validateState(state);
-        var normalized = migrate(state);
+        normalized = migrate(state);
+      } catch (error) {
+        return { ok: false, error: "save-failed", detail: error };
+      }
+
+      var oldRaw;
+      try {
+        oldRaw = storage.getItem(key);
+      } catch (error) {
+        return { ok: false, error: "read-failed", detail: error };
+      }
+
+      try {
         storage.setItem(key, JSON.stringify(normalized));
         return { ok: true, state: normalized };
       } catch (error) {
-        return { ok: false, error: "save-failed", detail: error };
+        try {
+          if (oldRaw === null) storage.removeItem(key);
+          else storage.setItem(key, oldRaw);
+        } catch (_) {}
+        return { ok: false, error: "write-failed", detail: error };
       }
     }
 
