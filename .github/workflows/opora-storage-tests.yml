@@ -1,4 +1,4 @@
-name: Opora storage tests
+name: Opora tests
 
 on:
   push:
@@ -7,11 +7,17 @@ on:
     branches: [opora-v2-development]
 
 jobs:
-  storage-tests:
+  checks:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: node --test tests/*.test.cjs
+      - name: Check JavaScript syntax
+        run: |
+          find src -name '*.js' -print0 | while IFS= read -r -d '' file; do
+            node --check "$file"
+          done
+      - name: Run unit tests
+        run: node --test tests/*.test.cjs
