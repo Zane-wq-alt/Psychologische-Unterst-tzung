@@ -1,5 +1,5 @@
-const CACHE = "opora-v12";
-const FILES = ["./","./index.html","./manifest.webmanifest","./src/ui/legacy.css","./src/core/storage.js","./src/legacy/app.js","./icon-192.png","./icon-512.png","./icon-maskable.png"];
+const CACHE = "opora-v13";
+const FILES = ["./","./index.html","./manifest.webmanifest","./src/ui/legacy.css","./src/core/storage.js","./src/storage/cloud-sync.js","./src/features/privacy.js","./src/legacy/app.js","./icon-192.png","./icon-512.png","./icon-maskable.png"];
 self.addEventListener("install", event => { event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(FILES)).then(() => self.skipWaiting())); });
 self.addEventListener("activate", event => { event.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(key => key.startsWith("opora-") && key !== CACHE).map(key => caches.delete(key)))).then(() => self.clients.claim())); });
 self.addEventListener("fetch", event => { if (event.request.method !== "GET") return; const url = new URL(event.request.url); if (url.origin !== self.location.origin) return; event.respondWith(caches.match(event.request).then(cached => { const fresh = fetch(event.request).then(response => { if (response && response.ok) { const copy = response.clone(); caches.open(CACHE).then(cache => cache.put(event.request, copy)); } return response; }).catch(() => cached || caches.match("./index.html")); return cached || fresh; })); });
