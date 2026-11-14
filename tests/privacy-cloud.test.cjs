@@ -78,3 +78,20 @@ test("privacy center describes current local-only state without exposing record 
   assert.match(html, /ci: 1/);
   assert.doesNotMatch(html, /do not render this|secret/);
 });
+
+
+test("cloud compare-and-swap conflict is surfaced without treating it as success", async () => {
+  const sync = CloudSync.create({
+    transport: {
+      pull: async () => ({ revision: "v1" }),
+      push: async () => ({ ok: false, conflict: true, revision: "v2" })
+    }
+  });
+  sync.enable(true);
+  const result = await sync.sync({ marker: "local" }, "v1");
+
+  assert.equal(result.ok, false);
+  assert.equal(result.conflict, true);
+  assert.equal(result.error, "revision-conflict");
+  assert.equal(result.remoteRevision, "v2");
+});
