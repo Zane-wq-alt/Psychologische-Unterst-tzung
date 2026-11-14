@@ -69,6 +69,14 @@
           snapshot: localSnapshot,
           ifMatch: remoteRevision
         });
+        if (result && result.conflict === true) {
+          return {
+            ok: false,
+            conflict: true,
+            error: "revision-conflict",
+            remoteRevision: result.revision == null ? null : result.revision
+          };
+        }
         if (!result || result.ok !== true) {
           return { ok: false, error: "remote-write-rejected", detail: result || null };
         }
