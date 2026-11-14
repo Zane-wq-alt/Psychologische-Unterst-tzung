@@ -1,9 +1,8 @@
 <!doctype html>
 <html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><link rel="manifest" href="manifest.webmanifest"><meta name="theme-color" content="#EBDEFC"><link rel="icon" href="icon-192.png"><link rel="apple-touch-icon" href="icon-192.png"><title>Опора — поддержка и самонаблюдение</title>
-<script>try{var fl=document.createElement("link");fl.rel="stylesheet";fl.href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap";document.head.appendChild(fl)}catch(e){}</script>
 <link rel="stylesheet" href="src/ui/legacy.css"></head><body>
 <header class="row sp"><div><div class="row"><span id="hc"></span><h1>Опора</h1></div><span class="mut" id="cs"></span></div><div class="row"><button id="sbtn" data-a="astop" hidden aria-label="Остановить звуки">♪ Стоп</button><button class="sos" data-a="sos">Мне плохо</button></div></header>
 <nav id="nav"></nav><main id="v"></main><div id="sos" hidden role="dialog" aria-modal="true"></div><div id="toast" role="status"></div>
 <div class="mut card">Это не диагностика и не замена врачу или психологу. Приложение не даёт рекомендаций по лекарствам. При мыслях о самоповреждении или в острой ситуации: экстренный номер 112, кризисная служба вашего региона, близкий человек рядом.</div>
-<script src="src/core/storage.js"></script><script src="src/legacy/app.js"></script>
+<script src="src/core/storage.js"></script><script src="src/storage/cloud-sync.js"></script><script src="src/features/privacy.js"></script><script src="src/legacy/app.js"></script>
 <script>if("serviceWorker"in navigator)addEventListener("load",function(){navigator.serviceWorker.register("sw.js").catch(function(){})})</script></body></html>
