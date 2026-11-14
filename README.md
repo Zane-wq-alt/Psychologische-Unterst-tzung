@@ -17,7 +17,7 @@
 - Резервные копии — обычный JSON без шифрования; храните скачанные файлы в безопасном месте.
 
 ## Документация
-См. docs/ARCHITECTURE.md, docs/OPORA_V2_AUDIT.md, docs/OPORA_V2_FOUNDATION.md и docs/OPORA_V2_STATUS.md.
+См. docs/ARCHITECTURE.md, docs/OPORA_V2_AUDIT.md, docs/OPORA_V2_FOUNDATION.md, docs/OPORA_V2_STATUS.md и docs/CLOUD_SYNC_BACKEND.md.
 
 ## Статус
 Работа ведётся в ветке opora-v2-development. main не изменялась. Runtime разделён на упорядоченные файлы; переход с глобальных classic scripts на ES modules, настройка реального облачного backend и ручные проверки PWA/устройств остаются следующими задачами.
