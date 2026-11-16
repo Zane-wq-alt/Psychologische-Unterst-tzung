@@ -192,11 +192,134 @@ test("regular save preserves the previous value if storage write fails", () => {
 });
 
 test("regular save does not create a backup on every autosave", () => {
-  const storage = memoryStorage({ opora_v2: JSON.stringify({ ci: [{ d: "old" }] }) });
+  const initial = JSON.parse(JSON.stringify(defaults));
+  initial.schemaVersion = 1;
+  initial.ci = [{ d: "old" }];
+  const storage = memoryStorage({ opora_v2: JSON.stringify(initial) });
   const db = OporaStorage.create({ defaults, storage });
-  const result = db.save({ ci: [{ d: "new" }] });
+  const next = JSON.parse(JSON.stringify(initial));
+  next.ci[0].d = "new";
+  const result = db.save(next);
 
   assert.equal(result.ok, true);
   assert.equal(JSON.parse(storage.getItem("opora_v2")).ci[0].d, "new");
   assert.equal(db.listBackups().length, 0);
+});
+
+
+test("null known arrays are rejected instead of silently replaced by defaults", () => {
+  const raw = JSON.stringify({ ci: [], p: { sens: null } });
+  const storage = memoryStorage({ opora_v2: raw });
+  const result = OporaStorage.create({ defaults, storage }).load();
+
+  assert.equal(result.ok, false);
+  assert.equal(result.status, "invalid-data");
+  assert.equal(storage.getItem("opora_v2"), raw);
+});
+
+test("null and primitive records block migration without changing the source", () => {
+  for (const record of [null, "not-a-record", 7]) {
+    const raw = JSON.stringify({ ci: [record] });
+    const storage = memoryStorage({ opora_v2: raw });
+    const result = OporaStorage.create({ defaults, storage }).load();
+
+    assert.equal(result.ok, false);
+    assert.equal(result.status, "invalid-data");
+    assert.equal(storage.getItem("opora_v2"), raw);
+  }
+});
+
+test("known nested record arrays are validated before startup", () => {
+  const raw = JSON.stringify({ ci: [], ui: { rem: [null] } });
+  const storage = memoryStorage({ opora_v2: raw });
+  const result = OporaStorage.create({ defaults, storage }).load();
+
+  assert.equal(result.ok, false);
+  assert.equal(result.status, "invalid-data");
+  assert.equal(storage.getItem("opora_v2"), raw);
+});
+
+test("backup read-back verification prevents replacement", () => {
+  const raw = JSON.stringify({ ci: [{ d: "old" }] });
+  const storage = memoryStorage({ opora_v2: raw });
+  const originalSet = storage.setItem;
+  storage.setItem = function (key, value) {
+    if (String(key).startsWith("opora_v2_backup_")) {
+      originalSet.call(storage, key, "{not-the-backup}");
+      return;
+    }
+    originalSet.call(storage, key, value);
+  };
+
+  const result = OporaStorage.create({ defaults, storage })
+    .importText(JSON.stringify({ ci: [{ d: "new" }] }));
+
+  assert.equal(result.ok, false);
+  assert.equal(result.error, "backup-failed");
+  assert.equal(storage.getItem("opora_v2"), raw);
+});
+
+test("restore refuses a backup whose raw payload is invalid", () => {
+  const raw = JSON.stringify({ ci: [{ d: "current" }] });
+  const storage = memoryStorage({ opora_v2: raw });
+  const db = OporaStorage.create({ defaults, storage });
+  const key = "opora_v2_backup_999";
+  storage.setItem(key, JSON.stringify({
+    format: "opora-local-backup",
+    backupVersion: 1,
+    sourceKey: "opora_v2",
+    raw: "{broken"
+  }));
+
+  const result = db.restoreBackup(key);
+  assert.equal(result.ok, false);
+  assert.equal(result.error, "invalid-backup");
+  assert.equal(storage.getItem("opora_v2"), raw);
+});
+
+test("save backs up legacy data before applying schema defaults", () => {
+  const raw = fixture("legacy-partial.json").trim();
+  const storage = memoryStorage({ opora_v2: raw });
+  const db = OporaStorage.create({ defaults, storage });
+  const state = { ci: [{ d: "edited" }], p: { name: "Edited" } };
+  const result = db.save(state);
+
+  assert.equal(result.ok, true);
+  assert.equal(JSON.parse(storage.getItem(result.backupKey)).raw, raw);
+  assert.equal(JSON.parse(storage.getItem("opora_v2")).schemaVersion, 1);
+});
+
+test("save refuses to overwrite corrupt existing data", () => {
+  const raw = fixture("malformed.txt");
+  const storage = memoryStorage({ opora_v2: raw });
+  const db = OporaStorage.create({ defaults, storage });
+  const result = db.save({ ci: [] });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.error, "existing-data-invalid");
+  assert.equal(storage.getItem("opora_v2"), raw);
+});
+
+test("failed write verification rolls back the exact previous value", () => {
+  const raw = JSON.stringify({ ci: [{ d: "old" }] });
+  const storage = memoryStorage({ opora_v2: raw });
+  const originalGet = storage.getItem.bind(storage);
+  const originalSet = storage.setItem.bind(storage);
+  let primaryWrites = 0;
+  storage.setItem = function (key, value) {
+    if (key === "opora_v2") primaryWrites += 1;
+    originalSet(key, value);
+  };
+  storage.getItem = function (key) {
+    if (key === "opora_v2" && primaryWrites === 1) return "read-back-mismatch";
+    return originalGet(key);
+  };
+
+  const result = OporaStorage.create({ defaults, storage })
+    .importText(JSON.stringify({ ci: [{ d: "new" }] }));
+
+  assert.equal(result.ok, false);
+  assert.equal(result.error, "write-failed");
+  assert.equal(storage.getItem("opora_v2"), raw);
+  assert.equal(result.rollbackOk, true);
 });
