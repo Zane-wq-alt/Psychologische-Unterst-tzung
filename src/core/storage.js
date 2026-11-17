@@ -305,7 +305,18 @@
           return { ok: false, blocked: true, status: result.error, state: fresh(), raw: raw, error: result.detail, backupKey: result.backupKey };
         }
         var markerSaved = sourceKey === key ? true : writeMigrationMarker(sourceKey, migrated, result.backupKey);
-        return { ok: true, blocked: false, status: "migrated", state: migrated, backupKey: result.backupKey, migration: sourceKey === key ? null : { sourceKey: sourceKey, targetKey: key, recordCounts: recordCounts(migrated), markerSaved: markerSaved } };
+        return {
+          ok: true,
+          blocked: false,
+          status: sourceKey === key || markerSaved ? "migrated" : "migrated-marker-warning",
+          state: migrated,
+          backupKey: result.backupKey,
+          migration: sourceKey === key ? null : {
+            sourceKey: sourceKey, targetKey: key,
+            recordCounts: recordCounts(migrated), markerSaved: markerSaved
+          },
+          warning: sourceKey !== key && !markerSaved ? "migration-marker-write-failed" : null
+        };
       }
       return { ok: true, blocked: false, status: "ready", state: migrated, backupKey: null };
     }
@@ -383,14 +394,22 @@
       return { ok: true, state: normalized, backupKey: result.backupKey };
     }
 
-    function importText(text) {
+    function previewImport(text) {
       var parsed;
+      try { parsed = JSON.parse(text); }
+      catch (error) { return { ok: false, error: "invalid-json", detail: error }; }
       try {
-        parsed = JSON.parse(text);
+        var normalized = migrate(parsed);
+        return { ok: true, state: normalized, recordCounts: recordCounts(normalized) };
       } catch (error) {
-        return { ok: false, error: "invalid-json", detail: error };
+        return { ok: false, error: "invalid-import", detail: error };
       }
-      return replaceState(parsed, "before-import");
+    }
+
+    function importText(text) {
+      var preview = previewImport(text);
+      if (!preview.ok) return preview;
+      return replaceState(preview.state, "before-import");
     }
 
     function listBackups() {
@@ -421,8 +440,10 @@
         var backupText = storage.getItem(backupKey);
         if (backupText === null) throw new Error("missing-backup");
         entry = JSON.parse(backupText);
+        var acceptedSourceKeys = [key];
+        if (legacyKey && legacyKey !== key) acceptedSourceKeys.push(legacyKey);
         if (!entry || entry.format !== "opora-local-backup" ||
-            entry.backupVersion !== 1 || entry.sourceKey !== key ||
+            entry.backupVersion !== 1 || acceptedSourceKeys.indexOf(entry.sourceKey) === -1 ||
             typeof entry.raw !== "string") throw new Error("invalid-backup");
         migrate(JSON.parse(entry.raw));
       } catch (error) {
@@ -471,6 +492,7 @@
       save: save,
       replaceState: replaceState,
       importText: importText,
+      previewImport: previewImport,
       restoreBackup: restoreBackup,
       listBackups: listBackups,
       exportText: exportText,

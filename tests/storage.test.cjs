@@ -382,3 +382,87 @@ test("namespace migration failure leaves legacy source unchanged and does not cr
   assert.equal(storage.getItem("opora_v2"), raw);
   assert.equal(storage.getItem("opora_v2_data_v1"), null);
 });
+
+
+test("legacy namespace backups remain restorable after switching to the new namespace", () => {
+  const legacyRaw = fixture("legacy-full.json").trim();
+  const legacyBackupKey = "opora_v2_backup_1700000000000";
+  const storage = memoryStorage({
+    opora_v2: legacyRaw,
+    [legacyBackupKey]: JSON.stringify({
+      format: "opora-local-backup", backupVersion: 1, sourceKey: "opora_v2",
+      createdAt: "2023-11-14T22:13:20.000Z", reason: "legacy-before-migration", raw: legacyRaw
+    })
+  });
+  const db = OporaStorage.create({ key: "opora_v2_data_v1", legacyKey: "opora_v2", defaults, storage });
+  const migrated = db.load();
+  assert.equal(migrated.ok, true);
+  assert.equal(db.save({ ...migrated.state, ci: [{ d: "after-migration" }] }).ok, true);
+  assert.equal(db.restoreBackup(legacyBackupKey).ok, true);
+  assert.equal(storage.getItem("opora_v2_data_v1"), legacyRaw);
+  assert.equal(storage.getItem("opora_v2"), legacyRaw);
+  const loaded = db.load();
+  assert.equal(loaded.ok, true);
+  assert.deepEqual(loaded.state.chat, [{ r: "u", c: "archived sample" }]);
+});
+
+test("migration marker write failure is reported after verified data copy", () => {
+  const raw = fixture("legacy-partial.json").trim();
+  const storage = memoryStorage({ opora_v2: raw });
+  const originalSet = storage.setItem;
+  storage.setItem = function (key, value) {
+    if (key === "opora_v2_data_v1_migration_complete") throw new Error("quota");
+    originalSet.call(storage, key, value);
+  };
+  const db = OporaStorage.create({ key: "opora_v2_data_v1", legacyKey: "opora_v2", defaults, storage });
+  const result = db.load();
+  assert.equal(result.ok, true);
+  assert.equal(result.status, "migrated-marker-warning");
+  assert.equal(result.warning, "migration-marker-write-failed");
+  assert.equal(result.migration.markerSaved, false);
+  assert.equal(storage.getItem("opora_v2"), raw);
+  assert.equal(JSON.parse(storage.getItem("opora_v2_data_v1")).schemaVersion, 1);
+  assert.equal(storage.getItem("opora_v2_data_v1_migration_complete"), null);
+});
+
+test("import preview validates and normalizes data without writing or creating backups", () => {
+  const current = JSON.stringify({ ci: [{ d: "current" }] });
+  const storage = memoryStorage({ opora_v2_data_v1: current });
+  const db = OporaStorage.create({ key: "opora_v2_data_v1", defaults, storage });
+  const preview = db.previewImport(JSON.stringify({ ci: [{ d: "incoming" }], extra: true }));
+  assert.equal(preview.ok, true);
+  assert.deepEqual(preview.recordCounts, { ci: 1 });
+  assert.equal(preview.state.schemaVersion, 1);
+  assert.equal(storage.getItem("opora_v2_data_v1"), current);
+  assert.equal(db.listBackups().length, 0);
+});
+
+test("import preview rejects malformed and structurally invalid payloads without touching storage", () => {
+  const current = JSON.stringify({ ci: [{ d: "current" }] });
+  const storage = memoryStorage({ opora_v2_data_v1: current });
+  const db = OporaStorage.create({ key: "opora_v2_data_v1", defaults, storage });
+  assert.equal(db.previewImport("{broken").error, "invalid-json");
+  assert.equal(db.previewImport(JSON.stringify({ ci: null })).error, "invalid-import");
+  assert.equal(storage.getItem("opora_v2_data_v1"), current);
+  assert.equal(db.listBackups().length, 0);
+});
+
+test("export and import round-trip preserve supported and unknown data", () => {
+  const original = {
+    ci: [{ d: "2026-11-17", note: "quoted text" }],
+    chat: [{ r: "u", c: "archive" }],
+    p: { name: "Test", sens: ["noise"], trig: [], custom: { flag: true } },
+    ui: { th: "dark", dm: ["en", "sens"], fs: 1.15 },
+    customTopLevel: ["preserve", 7]
+  };
+  const source = OporaStorage.create({ defaults, storage: memoryStorage() });
+  const exported = source.exportText(original);
+  const destinationStorage = memoryStorage({ opora_v2_data_v1: JSON.stringify({ ci: [{ d: "old" }] }) });
+  const destination = OporaStorage.create({ key: "opora_v2_data_v1", defaults, storage: destinationStorage });
+  assert.equal(destination.previewImport(exported).ok, true);
+  const imported = destination.importText(exported);
+  assert.equal(imported.ok, true);
+  assert.deepEqual(JSON.parse(destination.raw()), JSON.parse(exported));
+  assert.equal(JSON.parse(destinationStorage.getItem(imported.backupKey)).raw,
+    JSON.stringify({ ci: [{ d: "old" }] }));
+});
