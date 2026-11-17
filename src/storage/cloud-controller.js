@@ -29,7 +29,8 @@
     function status() {
       var session = auth.getSession();
       return {
-        configured: !!(transport.configured && transport.configured()),
+        configured: (typeof auth.configured !== "function" || auth.configured()) &&
+          !!(transport.configured && transport.configured()),
         enabled: sync.status().enabled,
         signedIn: !!session,
         email: session && session.user ? session.user.email : null,
