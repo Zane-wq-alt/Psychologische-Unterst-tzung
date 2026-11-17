@@ -111,3 +111,14 @@ button.fv{justify-content:center;width:48px;padding:0;border-radius:50%;color:va
 .erow{padding:10px 0;border-top:1px solid var(--bd)}.erow:first-of-type{border-top:none}.erow .chips{margin:4px 0}
 #cform{scroll-margin-top:96px}.pill.pf{background:var(--bg2);color:var(--fg)}
 .erow .row button{min-height:36px;padding:2px 12px;font-size:.88rem}
+
+
+/* Keyboard and motion accessibility */
+:where(button,a,input,select,textarea,summary,[tabindex]):focus-visible{outline:3px solid var(--ac);outline-offset:3px}
+@media(prefers-reduced-motion:reduce){
+ *,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
+}
+.pwa-update{position:fixed;z-index:100;left:12px;right:12px;bottom:calc(88px + env(safe-area-inset-bottom,0px));max-width:620px;margin:auto;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.pwa-update[hidden]{display:none}
+.pwa-update span{flex:1 1 180px}
+.pwa-update button{min-height:44px}
