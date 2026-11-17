@@ -466,3 +466,17 @@ test("export and import round-trip preserve supported and unknown data", () => {
   assert.equal(JSON.parse(destinationStorage.getItem(imported.backupKey)).raw,
     JSON.stringify({ ci: [{ d: "old" }] }));
 });
+
+
+test("schema migration registry upgrades unversioned state to schema v1", () => {
+  const db = OporaStorage.create({ defaults, storage: memoryStorage() });
+  const migrated = db.migrate({ ci: [{ d: "legacy" }] });
+  assert.equal(migrated.schemaVersion, 1);
+  assert.deepEqual(migrated.ci, [{ d: "legacy" }]);
+  assert.ok(Array.isArray(migrated.ep));
+});
+
+test("future schema versions remain rejected rather than downgraded", () => {
+  const db = OporaStorage.create({ defaults, storage: memoryStorage() });
+  assert.throws(() => db.migrate({ schemaVersion: 2 }), /unsupported-schema-version/);
+});

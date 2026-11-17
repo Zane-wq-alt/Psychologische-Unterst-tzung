@@ -58,3 +58,30 @@ test("runtime has no remote font or stylesheet dependency", () => {
   assert.doesNotMatch(css, /@import\s+url\s*\(\s*["']?https?:/i);
   assert.doesNotMatch(css, /url\(\s*["']?https?:\/\/fonts\.googleapis\.com/i);
 });
+
+
+test("PWA updates wait for user confirmation and navigation fallback is scoped", () => {
+  const html = read("index.html");
+  const sw = read("sw.js");
+  assert.match(html, /Доступна новая версия «Опоры»/);
+  assert.match(html, /SKIP_WAITING/);
+  assert.match(sw, /event\.data\.type === "SKIP_WAITING"/);
+  assert.doesNotMatch(sw, /then\(\(\) => self\.skipWaiting\(\)\)/);
+  assert.match(sw, /event\.request\.mode === "navigate"/);
+});
+
+test("runtime network access is limited to the optional cloud transport and service worker", () => {
+  const html = read("index.html");
+  const scripts = [...html.matchAll(/<script src="([^"]+)"/g)].map((match) => match[1]);
+  for (const script of scripts) {
+    if (script === "src/storage/supabase-transport.js") continue;
+    assert.doesNotMatch(read(script), /\bfetch\s*\(/,
+      "unexpected network access in active runtime script: " + script);
+  }
+});
+
+test("keyboard focus and reduced-motion preferences are supported", () => {
+  const css = read("src/ui/legacy.css");
+  assert.match(css, /:focus-visible/);
+  assert.match(css, /prefers-reduced-motion:reduce/);
+});
