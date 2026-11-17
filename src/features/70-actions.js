@@ -80,3 +80,39 @@ function profUpd(){var c=completeness(),m=$("pm"),t=$("pmt");if(m)m.style.width=
 document.addEventListener("input",function(e){var t=e.target;if(t.dataset&&t.dataset.m){S.ui.snd.mix[t.dataset.m]=+t.value;var ml=$("mv_"+t.dataset.m);if(ml)ml.textContent=t.value;aApply();svLater()}if(t.id=="avol"){S.ui.snd.vol=+t.value;var vl=$("vo");if(vl)vl.textContent=t.value;aApply();svLater()}if(t.type=="range"&&t.id&&t.id.indexOf("s_")==0){var l=$("o_"+t.id.slice(2));if(l)l.textContent=t.value}});
 document.addEventListener("input",function(e){var t=e.target;if(t.id!="msr")return;var q=t.value.trim().toLowerCase(),n=0;document.querySelectorAll(".mrow").forEach(function(r){var ok=!q||r.dataset.n.indexOf(q)>-1;r.hidden=!ok;if(ok)n++});document.querySelectorAll(".mg").forEach(function(g){g.hidden=!g.querySelector(".mrow:not([hidden])")});var m=$("mnone");if(m)m.hidden=n>0});
 document.addEventListener("keydown",function(e){if(e.key=="Escape"&&!$("sos").hidden)closeOv()});
+
+
+ACT.cloudlogin=async function(){
+ var result=await CLOUD.sendMagicLink($("cloud-email")&&$("cloud-email").value);
+ toast(result.ok?"Ссылка для входа отправлена. Откройте письмо на этом устройстве.":result.error==="invalid-email"?"Проверьте адрес почты":"Не удалось отправить ссылку для входа","err");
+};
+ACT.cloudenable=function(){
+ var result=CLOUD.enable(!!($("cloud-consent")&&$("cloud-consent").checked));
+ if(!result.ok){toast(result.error==="auth-required"?"Сначала войдите в облачный аккаунт":"Нужно отдельное согласие и настроенный backend","err");return}
+ S.cloudConsent=true;sv();go("rep",1);toast("Синхронизация разрешена. Отправка начнётся только после нажатия «Синхронизировать сейчас».","ok");
+};
+ACT.cloudsync=async function(){
+ var snapshot=JSON.parse(JSON.stringify(S));delete snapshot.cloudRevision;delete snapshot.cloudConsent;
+ var result=await CLOUD.sync(snapshot,S.cloudRevision==null?null:S.cloudRevision);
+ if(result.ok){S.cloudRevision=result.revision;sv();go("rep",1);toast(result.unchanged?"Удалённая и локальная копии пусты":"Синхронизация завершена","ok");return}
+ go("rep",1);toast(result.error==="revision-conflict"||result.error==="remote-available"?"Найдена другая облачная копия. Локальные данные не изменены.":"Не удалось синхронизировать: "+result.error,"err");
+};
+ACT.cloudrestore=function(){
+ var remote=CLOUD.pendingRemote();if(!remote)return;
+ if(!window.confirm("Заменить локальные данные удалённой копией? Перед заменой будет создана локальная резервная копия."))return;
+ var result=STORAGE.replaceState(remote.snapshot,"before-cloud-restore");
+ if(!result.ok){toast("Не удалось создать резервную копию или восстановить облачные данные","err");return}
+ S=result.state;S.cloudRevision=remote.revision;S.cloudConsent=true;sv();go("rep",1);toast("Удалённая копия восстановлена. Предыдущие локальные данные сохранены в backup.","ok");
+};
+ACT.clouddisable=function(){CLOUD.disable();S.cloudConsent=false;sv();go("rep",1);toast("Синхронизация отключена. Локальные данные сохранены.")};
+ACT.clouddelete=async function(){
+ if(!window.confirm("Удалить только облачную копию? Локальные данные на этом устройстве останутся."))return;
+ var result=await CLOUD.deleteRemote();
+ if(!result.ok){toast("Не удалось удалить облачную копию: "+result.error,"err");return}
+ CLOUD.disable();S.cloudConsent=false;S.cloudRevision=null;sv();go("rep",1);toast("Облачная копия удалена. Локальные данные сохранены.","ok");
+};
+ACT.cloudlogout=async function(){
+ if(!window.confirm("Выйти из облачного аккаунта на этом устройстве?"))return;
+ var result=await CLOUD.logout();S.cloudConsent=false;S.cloudRevision=null;sv();go("rep",1);
+ toast(result.ok?"Вы вышли из облачного аккаунта":"Локальная сессия очищена; сервер не подтвердил выход",result.ok?"ok":"err");
+};

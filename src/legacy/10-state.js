@@ -8,7 +8,11 @@ p:{name:"",goal:"",sens:[],trig:[],stims:"",safe:"",media:"",interests:"",style:
 var STORAGE=window.OporaStorage.create({key:"opora_v2_data_v1",legacyKey:KEY,defaults:DEF});
 var LOAD=STORAGE.load(),S=LOAD.state,storageBlocked=!LOAD.ok,localOK=LOAD.ok,lsT=0,migrationNotice=LOAD.ok&&(LOAD.status=="migrated"||LOAD.status=="migrated-marker-warning");
 var CLOUD=window.OporaCloudController.create({config:window.OPORA_SUPABASE_CONFIG,revision:S.cloudRevision==null?null:S.cloudRevision});
-if(window.location.search.indexOf("token_hash=")>-1)CLOUD.handleCallback().then(function(result){if(!result.ok)console.warn("Cloud sign-in callback was not completed:",result.error)});
+if(S.cloudConsent===true&&CLOUD.status().configured&&CLOUD.status().signedIn)CLOUD.enable(true);
+if(window.location.search.indexOf("token_hash=")>-1)CLOUD.handleCallback().then(function(result){
+ if(result.ok&&S.cloudConsent===true)CLOUD.enable(true);
+ if(!result.ok)console.warn("Cloud sign-in callback was not completed:",result.error);
+});
 try{rollSp(true)}catch(e){}
 if(LOAD.ok&&LOAD.status=="empty")localOK=STORAGE.save(S).ok;
 function saveLocal(){if(storageBlocked)return false;var result=STORAGE.save(S);return result.ok}
