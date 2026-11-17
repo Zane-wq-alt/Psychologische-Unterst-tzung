@@ -8,7 +8,7 @@
 <script>
 (function(){
  if(!("serviceWorker" in navigator))return;
- var registration=null,updatePanel=document.getElementById("pwa-update"),accepted=false;
+ var registration=null,updatePanel=document.getElementById("pwa-update"),hadController=!!navigator.serviceWorker.controller;
  function showUpdate(){if(updatePanel)updatePanel.hidden=false}
  function watch(reg){
   registration=reg;
@@ -27,11 +27,12 @@
  });
  document.getElementById("pwa-update-accept").addEventListener("click",function(){
   if(!registration||!registration.waiting)return;
-  accepted=true;registration.waiting.postMessage({type:"SKIP_WAITING"});
+  registration.waiting.postMessage({type:"SKIP_WAITING"});
  });
  document.getElementById("pwa-update-dismiss").addEventListener("click",function(){updatePanel.hidden=true});
  navigator.serviceWorker.addEventListener("controllerchange",function(){
-  if(accepted&&!window.__oporaReloaded){window.__oporaReloaded=true;window.location.reload()}
+  if(hadController&&!window.__oporaReloaded){window.__oporaReloaded=true;window.location.reload()}
+  hadController=true
  });
 })();
 </script></body></html></body></html>
