@@ -225,6 +225,9 @@
     }
 
     function writeWithBackup(state, reason, oldRaw) {
+      var targetRaw;
+      try { targetRaw = storage.getItem(key); }
+      catch (error) { return { ok: false, error: "read-failed", detail: error, backupKey: null }; }
       var serialized;
       try {
         serialized = JSON.stringify(state);
@@ -252,7 +255,7 @@
           error: "write-failed",
           detail: error,
           backupKey: backupKey,
-          rollbackOk: rollbackRaw(oldRaw)
+          rollbackOk: rollbackRaw(targetRaw)
         };
       }
     }
