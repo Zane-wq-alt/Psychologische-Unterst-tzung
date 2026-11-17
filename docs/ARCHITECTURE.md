@@ -98,3 +98,12 @@ GitHub Actions проверяет синтаксис каждого JavaScript-�
 - Последняя remote revision хранится в экземпляре координатора; постоянное хранение и пользовательский Auth/consent UI требуют host-интеграции, которой пока нет.
 - Service Worker не активирует обновление принудительно: ожидающая версия показывается пользователю и применяется после нажатия «Обновить». Offline fallback на index.html ограничен навигационными запросами.
 - В интерфейс добавлены keyboard focus-visible и prefers-reduced-motion.
+
+
+## Supabase Auth и cloud UI
+
+- supabase-config.js содержит только публичные project URL и anon/publishable key; service-role ключ не допускается.
+- Supabase Auth использует email magic link/OTP. Сессия хранится в sessionStorage, refresh token используется только для получения нового access token.
+- Центр приватности показывает вход, список категорий, отдельное согласие, ручную синхронизацию, отключение, удаление remote-копии и восстановление remote snapshot с локальным backup.
+- При пустой конфигурации auth и sync недоступны, приложение остаётся local-only. Данные не отправляются автоматически.
+- Перед реальным использованием необходима проверка redirect allow list, email templates, RLS двумя аккаунтами и CAS conflict в созданном проекте Supabase.
