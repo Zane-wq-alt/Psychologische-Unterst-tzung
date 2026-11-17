@@ -94,7 +94,7 @@
       var accessToken = fragment.get("access_token");
       var refreshToken = fragment.get("refresh_token");
       if (!tokenHash && accessToken && refreshToken) {
-        if (["email", "magiclink"].indexOf(fragment.get("type")) < 0) return { ok: false, error: "invalid-callback-type" };
+        if (["email", "magiclink", "signup"].indexOf(fragment.get("type")) < 0) return { ok: false, error: "invalid-callback-type" };
         try {
           writeSession({
             access_token: accessToken,
@@ -109,7 +109,7 @@
         } catch (error) { return { ok: false, error: "callback-session-failed", detail: error }; }
       }
       if (!tokenHash) return { ok: true, skipped: true };
-      if (["email", "magiclink"].indexOf(type) < 0) return { ok: false, error: "invalid-callback-type" };
+      if (["email", "magiclink", "signup"].indexOf(type) < 0) return { ok: false, error: "invalid-callback-type" };
       try {
         var result = await request("/auth/v1/verify", { token_hash: tokenHash, type: type });
         writeSession(result);

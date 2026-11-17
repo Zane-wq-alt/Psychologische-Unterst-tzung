@@ -107,3 +107,20 @@ test("Supabase confirmation URL fragment is accepted and sensitive tokens are re
   assert.equal(cleaned, "/index.html");
   assert.doesNotMatch(cleaned, /access_token|refresh_token/);
 });
+
+
+test("new-account signup confirmation callback is accepted", async () => {
+  const auth = Auth.create({
+    url: "https://example.supabase.co", anonKey: "public-key", storage: memoryStore(),
+    fetch: async () => response(200, {
+      access_token: "signup-access", refresh_token: "signup-refresh", expires_in: 3600,
+      user: { id: "new-user", email: "new@example.com" }
+    })
+  });
+  const result = await auth.handleCallback(
+    { search: "?token_hash=signup-token&type=signup", pathname: "/", hash: "" },
+    null
+  );
+  assert.equal(result.ok, true);
+  assert.equal(auth.getSession().user.email, "new@example.com");
+});
