@@ -118,6 +118,8 @@
   function create(options) {
     options = options || {};
     var key = options.key || "opora_v2";
+    var legacyKey = options.legacyKey || null;
+    var migrationMarkerKey = options.migrationMarkerKey || (key + "_migration_complete");
     var defaults = options.defaults || {};
     var storage = options.storage || null;
     if (!storage) {
@@ -131,6 +133,41 @@
         setItem: function () { throw new Error("storage-unavailable"); },
         removeItem: function () { throw new Error("storage-unavailable"); }
       };
+    }
+
+    function readCurrentRaw() {
+      var current = storage.getItem(key);
+      if (current === null && legacyKey && legacyKey !== key) {
+        return storage.getItem(legacyKey);
+      }
+      return current;
+    }
+
+    function recordCounts(state) {
+      var counts = {};
+      COLLECTIONS.forEach(function (name) {
+        if (Array.isArray(state[name])) counts[name] = state[name].length;
+      });
+      return counts;
+    }
+
+    function writeMigrationMarker(source, state, backupKey) {
+      var marker = {
+        format: "opora-migration-complete",
+        version: VERSION,
+        sourceKey: source,
+        targetKey: key,
+        completedAt: new Date().toISOString(),
+        recordCounts: recordCounts(state),
+        backupKey: backupKey || null
+      };
+      try {
+        var rawMarker = JSON.stringify(marker);
+        storage.setItem(migrationMarkerKey, rawMarker);
+        return storage.getItem(migrationMarkerKey) === rawMarker;
+      } catch (_) {
+        return false;
+      }
     }
 
     function fresh() {
@@ -222,8 +259,13 @@
 
     function load() {
       var raw;
+      var sourceKey = key;
       try {
         raw = storage.getItem(key);
+        if (raw === null && legacyKey && legacyKey !== key) {
+          raw = storage.getItem(legacyKey);
+          if (raw !== null) sourceKey = legacyKey;
+        }
       } catch (error) {
         return { ok: false, blocked: true, status: "read-failed", state: fresh(), error: error };
       }
@@ -254,12 +296,13 @@
         return { ok: false, blocked: true, status: "invalid-data", state: fresh(), raw: raw, error: error, backupKey: null };
       }
       var nextRaw = JSON.stringify(migrated);
-      if (nextRaw !== raw) {
-        var result = writeWithBackup(migrated, "schema-migration", raw);
+      if (nextRaw !== raw || sourceKey !== key) {
+        var result = writeWithBackup(migrated, sourceKey === key ? "schema-migration" : "namespace-migration", raw);
         if (!result.ok) {
           return { ok: false, blocked: true, status: result.error, state: fresh(), raw: raw, error: result.detail, backupKey: result.backupKey };
         }
-        return { ok: true, blocked: false, status: "migrated", state: migrated, backupKey: result.backupKey };
+        var markerSaved = sourceKey === key ? true : writeMigrationMarker(sourceKey, migrated, result.backupKey);
+        return { ok: true, blocked: false, status: "migrated", state: migrated, backupKey: result.backupKey, migration: sourceKey === key ? null : { sourceKey: sourceKey, targetKey: key, recordCounts: recordCounts(migrated), markerSaved: markerSaved } };
       }
       return { ok: true, blocked: false, status: "ready", state: migrated, backupKey: null };
     }
@@ -275,7 +318,7 @@
 
       var oldRaw;
       try {
-        oldRaw = storage.getItem(key);
+        oldRaw = readCurrentRaw();
       } catch (error) {
         return { ok: false, error: "read-failed", detail: error };
       }
@@ -330,7 +373,7 @@
         return { ok: false, error: "invalid-import", detail: error };
       }
       var oldRaw;
-      try { oldRaw = storage.getItem(key); }
+      try { oldRaw = readCurrentRaw(); }
       catch (error) { return { ok: false, error: "read-failed", detail: error }; }
       var result = writeWithBackup(normalized, reason || "replace-data", oldRaw);
       if (!result.ok) return result;
@@ -384,7 +427,7 @@
       }
 
       var raw;
-      try { raw = storage.getItem(key); }
+      try { raw = readCurrentRaw(); }
       catch (error) { return { ok: false, error: "read-failed", detail: error }; }
 
       var currentBackup;
@@ -412,7 +455,7 @@
     }
 
     function raw() {
-      try { return storage.getItem(key); }
+      try { return readCurrentRaw(); }
       catch (_) { return null; }
     }
 

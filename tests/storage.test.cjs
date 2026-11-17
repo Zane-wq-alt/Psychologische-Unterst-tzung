@@ -323,3 +323,62 @@ test("failed write verification rolls back the exact previous value", () => {
   assert.equal(storage.getItem("opora_v2"), raw);
   assert.equal(result.rollbackOk, true);
 });
+
+
+test("legacy namespace is copied to a new namespace only after backup and read-back verification", () => {
+  const raw = fixture("legacy-full.json").trim();
+  const storage = memoryStorage({ opora_v2: raw });
+  const db = OporaStorage.create({
+    key: "opora_v2_data_v1",
+    legacyKey: "opora_v2",
+    defaults,
+    storage
+  });
+  const result = db.load();
+
+  assert.equal(result.ok, true);
+  assert.equal(result.status, "migrated");
+  assert.equal(result.migration.sourceKey, "opora_v2");
+  assert.equal(result.migration.targetKey, "opora_v2_data_v1");
+  assert.equal(result.migration.markerSaved, true);
+  assert.deepEqual(result.migration.recordCounts, { ci: 1, ep: 1, ev: 1, chat: 1, notes: 1, cc: 1, cp: 1 });
+  assert.equal(storage.getItem("opora_v2"), raw, "legacy source must remain untouched");
+  assert.equal(JSON.parse(storage.getItem("opora_v2_data_v1")).schemaVersion, 1);
+  assert.equal(JSON.parse(storage.getItem("opora_v2_data_v1_migration_complete")).format, "opora-migration-complete");
+  assert.equal(JSON.parse(storage.getItem(result.backupKey)).raw, raw);
+});
+
+test("namespace migration is idempotent and subsequent saves target only the new namespace", () => {
+  const raw = fixture("legacy-partial.json").trim();
+  const storage = memoryStorage({ opora_v2: raw });
+  const db = OporaStorage.create({ key: "opora_v2_data_v1", legacyKey: "opora_v2", defaults, storage });
+  const first = db.load();
+  const backupCount = db.listBackups().length;
+  const second = db.load();
+  const changed = { ...second.state, ci: [{ d: "new record" }] };
+  const saved = db.save(changed);
+
+  assert.equal(first.ok, true);
+  assert.equal(second.status, "ready");
+  assert.equal(db.listBackups().length, backupCount);
+  assert.equal(saved.ok, true);
+  assert.equal(storage.getItem("opora_v2"), raw);
+  assert.deepEqual(JSON.parse(storage.getItem("opora_v2_data_v1")).ci, [{ d: "new record" }]);
+});
+
+test("namespace migration failure leaves legacy source unchanged and does not create target", () => {
+  const raw = fixture("legacy-partial.json").trim();
+  const storage = memoryStorage({ opora_v2: raw });
+  const originalSet = storage.setItem;
+  storage.setItem = function (key, value) {
+    if (String(key).startsWith("opora_v2_data_v1_backup_")) throw new Error("quota");
+    originalSet.call(storage, key, value);
+  };
+  const db = OporaStorage.create({ key: "opora_v2_data_v1", legacyKey: "opora_v2", defaults, storage });
+  const result = db.load();
+
+  assert.equal(result.ok, false);
+  assert.equal(result.blocked, true);
+  assert.equal(storage.getItem("opora_v2"), raw);
+  assert.equal(storage.getItem("opora_v2_data_v1"), null);
+});
