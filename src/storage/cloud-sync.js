@@ -97,7 +97,8 @@
             ok: false,
             conflict: true,
             error: "revision-conflict",
-            remoteRevision: result.revision == null ? null : result.revision
+            remoteRevision: result.revision == null ? null : result.revision,
+            remoteSnapshot: result.snapshot || null
           };
         }
         if (!result || result.ok !== true) {
