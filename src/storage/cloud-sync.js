@@ -64,7 +64,7 @@
       var remoteRevision = remote.revision;
       var remoteSnapshot = remote.snapshot;
       if (!remoteSnapshot || typeof remoteSnapshot !== "object" || Array.isArray(remoteSnapshot)) {
-        return { ok: false, error: "invalid-remote-snapshot" };
+        return { ok: false, error: "invalid-remote-response" };
       }
       if (localRevision === null || localRevision === undefined) {
         if (remoteRevision !== 0) {

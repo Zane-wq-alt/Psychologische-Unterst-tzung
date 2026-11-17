@@ -14,7 +14,7 @@ test("cloud sync is local-only by default and makes no transport calls", async (
     }
   });
 
-  assert.deepEqual(sync.status(), { enabled: false, configured: true, mode: "local-only" });
+  assert.deepEqual(sync.status(), { enabled: false, configured: true, mode: "local-only", lastRevision: null });
   const result = await sync.sync({}, 1);
   assert.equal(result.error, "sync-disabled");
   assert.equal(calls, 0);
@@ -52,7 +52,7 @@ test("matching revisions use conditional write and can be disabled", async () =>
   let request;
   const sync = CloudSync.create({
     transport: {
-      pull: async () => ({ revision: "v1" }),
+      pull: async () => ({ revision: "v1", snapshot: {} }),
       push: async (payload) => { request = payload; return { ok: true, revision: "v2" }; }
     }
   });
@@ -83,7 +83,7 @@ test("privacy center describes current local-only state without exposing record 
 test("cloud compare-and-swap conflict is surfaced without treating it as success", async () => {
   const sync = CloudSync.create({
     transport: {
-      pull: async () => ({ revision: "v1" }),
+      pull: async () => ({ revision: "v1", snapshot: {} }),
       push: async () => ({ ok: false, conflict: true, revision: "v2" })
     }
   });
