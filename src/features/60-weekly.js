@@ -291,6 +291,6 @@ function importJSON(txt){
  var result=STORAGE.importText(txt);
  if(!result.ok){toast(result.error=="backup-failed"?"Не удалось создать резервную копию — импорт отменён":"Не удалось сохранить JSON; исходные данные не заменены","err");return}
  pendingImportText=null;var panel=$("import-preview");if(panel){panel.hidden=true;panel.textContent=""}
- S=result.state;storageBlocked=false;VER++;localOK=true;applyUI();setCS();toast("Данные загружены, прежняя версия сохранена в резервной копии","ok");go("today",1)
+ S=result.state;CLOUD.disable();storageBlocked=false;VER++;localOK=true;applyUI();setCS();toast("Данные загружены; синхронизация отключена, облачная копия не удалена","ok");go("today",1)
 }
 function copyText(v,el){var fb=function(){var a=document.createElement("textarea");a.value=v;document.body.appendChild(a);a.select();try{document.execCommand("copy")}catch(e){}a.remove()};try{navigator.clipboard.writeText(v).catch(fb)}catch(e){fb()}if(el)el.style.borderColor="var(--g)";toast("Скопировано","ok")}

@@ -10,7 +10,8 @@
     var url = String(options.url || "").replace(/\/$/, "");
     var anonKey = options.anonKey || "";
     var redirectTo = options.redirectTo || "";
-    var store = options.storage || (typeof sessionStorage !== "undefined" ? sessionStorage : null);
+    var store = options.storage || null;
+    if (!store) { try { if (typeof sessionStorage !== "undefined") store = sessionStorage; } catch (_) {} }
     var fetchImpl = options.fetch || (typeof fetch === "function" ? fetch.bind(typeof globalThis !== "undefined" ? globalThis : null) : null);
     var memorySession = null;
     var SESSION_KEY = "opora_supabase_session_v1";
