@@ -69,6 +69,19 @@ ACT.extreload=function(){var loaded=STORAGE.load();S=loaded.state;storageBlocked
 ACT.extkeep=function(){if(!window.confirm("Заменить данные другой вкладки данными этой вкладки? Перед заменой будет создана локальная резервная копия."))return;var result=STORAGE.replaceState(S,"before-overwrite-external-change");if(!result.ok){toast("Не удалось создать резервную копию — данные не заменены","err");return}externalChange=false;localOK=true;setCS();go(tab,1);toast("Сохранена версия этой вкладки; прежние данные остались в точках восстановления","ok")};
 ACT.dlerr=function(){saveFile("opora-error-log.txt",OporaErrors.exportText(),"text/plain")};
 ACT.clrerr=function(){OporaErrors.clear();go("rep",1);toast("Журнал ошибок очищен","ok")};
+ACT.sddo=function(){
+ var ids=[].slice.call(document.querySelectorAll("input[data-sd]:checked")).map(function(x){return x.dataset.sd}),purge=!!document.querySelector("input[data-sdpurge]:checked");
+ if(!ids.length&&!purge){toast("Отметьте, что удалить");return}
+ if(storageBlocked||externalChange){toast("Сначала решите вопрос с состоянием хранилища","err");return}
+ var plan=ids.length?OporaSelectiveDelete.plan(S,ids,STORAGE.fresh()):null;
+ if(ids.length&&!plan.ok){toast("Не удалось подготовить удаление","err");return}
+ var msg=ids.length?"Будет удалено: "+plan.removed.map(function(x){return x.label+" ("+x.count+")"}).join(", ")+". ":"";
+ msg+=purge?"Все локальные точки восстановления и копия данных прежней версии будут удалены окончательно: вернуть удалённое будет невозможно.":"Перед удалением будет создана локальная точка восстановления.";
+ if(!window.confirm(msg+" Продолжить?"))return;
+ if(plan){var result=STORAGE.replaceState(plan.state,"before-selective-delete");if(!result.ok){toast("Не удалось создать резервную копию — ничего не удалено","err");return}S=result.state;VER++;localOK=true;try{rollSp(true)}catch(e){}}
+ var purged=purge?STORAGE.purgeLocalCopies():null;
+ applyUI();setCS();go("rep",1);
+ toast(purged&&!purged.ok?"Данные удалены, но часть копий удалить не удалось":purge?"Выбранное и локальные копии удалены окончательно":"Выбранное удалено; точка восстановления сохранена","ok")};
 ACT.dlraw=function(){var raw=STORAGE.raw();if(raw!==null)saveFile("opora-recovery-raw.txt",raw,"text/plain")};
 document.addEventListener("click",function(e){var b=e.target.closest("[data-a]");if(!b||b.tagName=="SELECT")return;if(b.type=="checkbox"&&e.target!==b&&!b.contains(e.target))return;var f=ACT[b.dataset.a];if(f&&b.tagName!="INPUT"||(f&&b.type=="checkbox")){try{f(b,e)}catch(err){OporaErrors.report(err,"action:"+b.dataset.a)}}});
 document.addEventListener("change",function(e){var t=e.target;

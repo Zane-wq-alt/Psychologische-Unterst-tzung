@@ -158,3 +158,44 @@ test("unhandled errors produce a local notice and a local journal entry without 
   assert.ok(await page.evaluate(() => typeof go === "function" && !!document.querySelector("#v").children.length));
   assert.deepEqual(requests, [], "error reporting must not use the network");
 });
+
+test("selective deletion removes only the chosen sections, keeps a restore point, and can purge local copies", async (t) => {
+  const browser = await chromium.launch({ headless: true });
+  t.after(() => browser.close());
+  const page = await (await browser.newContext()).newPage();
+  const errors = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  const dialogs = [];
+  page.on("dialog", (dialog) => { dialogs.push(dialog.message()); dialog.accept(); });
+  await page.goto(origin, { waitUntil: "networkidle" });
+  await page.waitForFunction(() => document.querySelector("#v") && document.querySelector("#v").children.length > 0);
+
+  await page.evaluate(() => {
+    S.ci.push({ d: "2026-11-17", mood: 2 }, { d: "2026-11-16", mood: 3 });
+    S.notes.push({ t: "заметка", d: "2026-11-17" });
+    S.chat.push({ r: "u", c: "старый диалог" });
+    flushLocal();
+    go("rep", 1);
+  });
+  await page.locator('input[data-sd="checkins"]').check();
+  await page.locator('input[data-sd="archive"]').check();
+  await page.locator('[data-a="sddo"]').click();
+  await page.waitForFunction(() => S.ci.length === 0);
+
+  assert.match(dialogs[0], /Чек-ины \(2\)/);
+  const stored = await page.evaluate(() => JSON.parse(localStorage.getItem("opora_v2_data_v1")));
+  assert.equal(stored.ci.length, 0);
+  assert.equal(stored.chat.length, 0);
+  assert.equal(stored.notes.length, 1, "unselected sections are kept");
+  const backups = await page.evaluate(() => STORAGE.listBackups());
+  assert.ok(backups.some((item) => item.reason === "before-selective-delete"));
+
+  await page.evaluate(() => go("rep", 1));
+  await page.locator('input[data-sdpurge]').check();
+  await page.locator('[data-a="sddo"]').click();
+  await page.waitForFunction(() => STORAGE.listBackups().length === 0);
+  assert.match(dialogs[1], /окончательно/);
+  assert.deepEqual(await page.evaluate(() => STORAGE.localCopies()), { backups: 0, legacy: false });
+  assert.equal(await page.evaluate(() => S.notes.length), 1);
+  assert.deepEqual(errors, []);
+});

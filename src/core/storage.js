@@ -519,6 +519,40 @@
       return { ok: true, backupKey: currentBackup, raw: entry.raw };
     }
 
+    function localCopies() {
+      var result = { backups: 0, legacy: false };
+      try {
+        result.backups = listBackups().length;
+        result.legacy = !!(legacyKey && legacyKey !== key && storage.getItem(legacyKey) !== null);
+      } catch (_) { /* значения по умолчанию */ }
+      return result;
+    }
+
+    // Окончательно удаляет локальные точки восстановления и копию данных прежней
+    // версии. Копия прежней версии удаляется только если текущие данные читаются:
+    // единственный экземпляр данных никогда не стирается.
+    function purgeLocalCopies() {
+      var removed = { backups: 0, legacy: false };
+      var failed = 0;
+      listBackups().forEach(function (item) {
+        try { storage.removeItem(item.key); removed.backups += 1; }
+        catch (_) { failed += 1; }
+      });
+      if (legacyKey && legacyKey !== key) {
+        try {
+          var current = storage.getItem(key);
+          if (current !== null) {
+            validateState(JSON.parse(current));
+            if (storage.getItem(legacyKey) !== null) {
+              storage.removeItem(legacyKey);
+              removed.legacy = storage.getItem(legacyKey) === null;
+            }
+          }
+        } catch (_) { failed += 1; }
+      }
+      return { ok: failed === 0, removed: removed, failed: failed };
+    }
+
     function exportText(state) {
       var exported = migrate(state);
       delete exported.cloudRevision;
@@ -544,6 +578,8 @@
       previewImport: previewImport,
       restoreBackup: restoreBackup,
       listBackups: listBackups,
+      localCopies: localCopies,
+      purgeLocalCopies: purgeLocalCopies,
       exportText: exportText,
       raw: raw
     };
