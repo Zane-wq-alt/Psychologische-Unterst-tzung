@@ -8,10 +8,12 @@ p:{name:"",goal:"",sens:[],trig:[],stims:"",safe:"",media:"",interests:"",style:
 var STORAGE=window.OporaStorage.create({key:"opora_v2_data_v1",legacyKey:KEY,defaults:DEF});
 var LOAD=STORAGE.load(),S=LOAD.state,storageBlocked=!LOAD.ok,localOK=LOAD.ok,lsT=0,migrationNotice=LOAD.ok&&(LOAD.status=="migrated"||LOAD.status=="migrated-marker-warning");
 var CLOUD=window.OporaCloudController.create({config:window.OPORA_SUPABASE_CONFIG,revision:S.cloudRevision==null?null:S.cloudRevision});
-if(S.cloudConsent===true&&CLOUD.status().configured&&CLOUD.status().signedIn)CLOUD.enable(true);
+var CLOUD_CONSENT_KEY="opora_cloud_consent_v1",CLOUD_CONSENT=false;
+try{CLOUD_CONSENT=localStorage.getItem(CLOUD_CONSENT_KEY)==="yes"}catch(_){}
+if(CLOUD_CONSENT&&CLOUD.status().configured&&CLOUD.status().signedIn)CLOUD.enable(true);
 if(window.location.search.indexOf("token_hash=")>-1||window.location.hash.indexOf("access_token=")>-1)CLOUD.handleCallback().then(function(result){
  if(result.ok){
-  if(S.cloudConsent===true)CLOUD.enable(true);
+  if(CLOUD_CONSENT)CLOUD.enable(true);
   if(typeof go==="function")go("rep",1);
   if(typeof toast==="function")toast("Вход в облачный аккаунт выполнен","ok");
  }else console.warn("Cloud sign-in callback was not completed:",result.error);

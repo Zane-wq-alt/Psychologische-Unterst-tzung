@@ -89,7 +89,8 @@ ACT.cloudlogin=async function(){
 ACT.cloudenable=function(){
  var result=CLOUD.enable(!!($("cloud-consent")&&$("cloud-consent").checked));
  if(!result.ok){toast(result.error==="auth-required"?"Сначала войдите в облачный аккаунт":"Нужно отдельное согласие и настроенный backend","err");return}
- S.cloudConsent=true;sv();go("rep",1);toast("Синхронизация разрешена. Отправка начнётся только после нажатия «Синхронизировать сейчас».","ok");
+ try{localStorage.setItem(CLOUD_CONSENT_KEY,"yes");CLOUD_CONSENT=true}catch(_){CLOUD.disable();toast("Не удалось сохранить согласие на этом устройстве","err");return}
+ sv();go("rep",1);toast("Синхронизация разрешена. Отправка начнётся только после нажатия «Синхронизировать сейчас».","ok");
 };
 ACT.cloudsync=async function(){
  var snapshot=JSON.parse(JSON.stringify(S));delete snapshot.cloudRevision;delete snapshot.cloudConsent;
@@ -102,17 +103,17 @@ ACT.cloudrestore=function(){
  if(!window.confirm("Заменить локальные данные удалённой копией? Перед заменой будет создана локальная резервная копия."))return;
  var result=STORAGE.replaceState(remote.snapshot,"before-cloud-restore");
  if(!result.ok){toast("Не удалось создать резервную копию или восстановить облачные данные","err");return}
- S=result.state;S.cloudRevision=remote.revision;S.cloudConsent=true;sv();go("rep",1);toast("Удалённая копия восстановлена. Предыдущие локальные данные сохранены в backup.","ok");
+ S=result.state;S.cloudRevision=remote.revision;sv();go("rep",1);toast("Удалённая копия восстановлена. Предыдущие локальные данные сохранены в backup.","ok");
 };
-ACT.clouddisable=function(){CLOUD.disable();S.cloudConsent=false;sv();go("rep",1);toast("Синхронизация отключена. Локальные данные сохранены.")};
+ACT.clouddisable=function(){CLOUD.disable();CLOUD_CONSENT=false;try{localStorage.removeItem(CLOUD_CONSENT_KEY)}catch(_){}sv();go("rep",1);toast("Синхронизация отключена. Локальные данные сохранены.")};
 ACT.clouddelete=async function(){
  if(!window.confirm("Удалить только облачную копию? Локальные данные на этом устройстве останутся."))return;
  var result=await CLOUD.deleteRemote();
  if(!result.ok){toast("Не удалось удалить облачную копию: "+result.error,"err");return}
- CLOUD.disable();S.cloudConsent=false;S.cloudRevision=null;sv();go("rep",1);toast("Облачная копия удалена. Локальные данные сохранены.","ok");
+ CLOUD.disable();CLOUD_CONSENT=false;try{localStorage.removeItem(CLOUD_CONSENT_KEY)}catch(_){}S.cloudRevision=null;sv();go("rep",1);toast("Облачная копия удалена. Локальные данные сохранены.","ok");
 };
 ACT.cloudlogout=async function(){
  if(!window.confirm("Выйти из облачного аккаунта на этом устройстве?"))return;
- var result=await CLOUD.logout();S.cloudConsent=false;S.cloudRevision=null;sv();go("rep",1);
+ var result=await CLOUD.logout();CLOUD_CONSENT=false;try{localStorage.removeItem(CLOUD_CONSENT_KEY)}catch(_){}S.cloudRevision=null;sv();go("rep",1);
  toast(result.ok?"Вы вышли из облачного аккаунта":"Локальная сессия очищена; сервер не подтвердил выход",result.ok?"ok":"err");
 };
