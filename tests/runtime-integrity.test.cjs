@@ -74,7 +74,7 @@ test("runtime network access is limited to the optional cloud transport and serv
   const html = read("index.html");
   const scripts = [...html.matchAll(/<script src="([^"]+)"/g)].map((match) => match[1]);
   for (const script of scripts) {
-    if (script === "src/storage/supabase-transport.js") continue;
+    if (script === "src/storage/supabase-transport.js" || script === "src/storage/supabase-auth.js") continue;
     assert.doesNotMatch(read(script), /\bfetch\s*\(/,
       "unexpected network access in active runtime script: " + script);
   }
@@ -84,4 +84,16 @@ test("keyboard focus and reduced-motion preferences are supported", () => {
   const css = read("src/ui/legacy.css");
   assert.match(css, /:focus-visible/);
   assert.match(css, /prefers-reduced-motion:reduce/);
+});
+
+
+test("cloud authentication is a local first-party module and is not an external script", () => {
+  const html = read("index.html");
+  const auth = read("src/storage/supabase-auth.js");
+  const config = read("src/storage/supabase-config.js");
+  assert.match(html, /src\/storage\/supabase-auth\.js/);
+  assert.match(auth, /sessionStorage/);
+  assert.match(auth, /auth\/v1\/otp/);
+  assert.match(auth, /auth\/v1\/token\?grant_type=refresh_token/);
+  assert.doesNotMatch(config, /service_role|service-role/i);
 });
