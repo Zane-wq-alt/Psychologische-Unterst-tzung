@@ -480,3 +480,19 @@ test("future schema versions remain rejected rather than downgraded", () => {
   const db = OporaStorage.create({ defaults, storage: memoryStorage() });
   assert.throws(() => db.migrate({ schemaVersion: 2 }), /unsupported-schema-version/);
 });
+
+
+test("export and import never carry cloud consent or account revision metadata", () => {
+  const db = OporaStorage.create({ defaults, storage: memoryStorage() });
+  const exported = JSON.parse(db.exportText({
+    ci: [{ d: "2026-11-17" }], cloudRevision: 12, cloudConsent: true
+  }));
+  assert.equal(Object.hasOwn(exported, "cloudRevision"), false);
+  assert.equal(Object.hasOwn(exported, "cloudConsent"), false);
+  const preview = db.previewImport(JSON.stringify({
+    ci: [{ d: "imported" }], cloudRevision: 99, cloudConsent: true
+  }));
+  assert.equal(preview.ok, true);
+  assert.equal(Object.hasOwn(preview.state, "cloudRevision"), false);
+  assert.equal(Object.hasOwn(preview.state, "cloudConsent"), false);
+});

@@ -412,6 +412,8 @@
       catch (error) { return { ok: false, error: "invalid-json", detail: error }; }
       try {
         var normalized = migrate(parsed);
+        delete normalized.cloudRevision;
+        delete normalized.cloudConsent;
         return { ok: true, state: normalized, recordCounts: recordCounts(normalized) };
       } catch (error) {
         return { ok: false, error: "invalid-import", detail: error };
@@ -487,7 +489,10 @@
     }
 
     function exportText(state) {
-      return JSON.stringify(migrate(state), null, 2);
+      var exported = migrate(state);
+      delete exported.cloudRevision;
+      delete exported.cloudConsent;
+      return JSON.stringify(exported, null, 2);
     }
 
     function raw() {
