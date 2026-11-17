@@ -82,3 +82,11 @@
 - PWA update ждёт подтверждения пользователя, а offline fallback ограничен навигацией.
 - Добавлены тесты миграций, первой синхронизации, сетевой границы, PWA update lifecycle, keyboard focus и reduced motion.
 - Настоящий облачный запуск и проверка RLS двумя аккаунтами заблокированы отсутствием отдельного Supabase project/Auth config. Ветка не содержит credentials, и cloud не включается автоматически.
+
+
+## Проверка браузера — 2026-11-17
+
+- Chromium smoke test: приложение стартует без uncaught page errors; JSON импорт проходит preview и требует отдельного подтверждения; после замены текущая версия сохраняется в local backup.
+- PWA smoke test: Service Worker устанавливается, app shell открывается из precache при отключённой сети.
+- GitHub Actions run [44056484063](https://github.com/Zane-wq-alt/Psychologische-Unterst-tzung/actions/runs/44056484063): 60/60 unit tests и 2/2 browser tests passed; syntax check passed.
+- Это headless Chromium на Linux, а не ручной тест Android/iOS устройств. Для полного production sign-off нужны проверка на целевых браузерах и реальный Supabase backend с двумя аккаунтами.

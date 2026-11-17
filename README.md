@@ -22,3 +22,10 @@
 
 ## Статус
 Работа ведётся в ветке opora-v2-development. main не изменялась. Runtime разделён на упорядоченные файлы; переход с глобальных classic scripts на ES modules, настройка реального облачного backend и ручные проверки PWA/устройств остаются следующими задачами.
+
+## Проверки
+
+- Логика хранения и облачного транспорта: `npm test` (Node.js tests).
+- Браузерные smoke tests: `npm install`, `npx playwright install chromium`, затем `npm run test:browser`.
+- CI запускает синтаксическую проверку, 60 unit tests и 2 Chromium browser smoke tests (старт приложения, подтверждённый импорт, Service Worker и загрузка app shell offline).
+- Browser tests используют отдельный временный профиль; реальные пользовательские данные не затрагиваются.
