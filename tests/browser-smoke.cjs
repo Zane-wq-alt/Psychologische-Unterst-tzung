@@ -88,3 +88,19 @@ test("PWA installs its service worker and the app shell reloads from cache offli
   assert.match(await page.locator("h1").innerText(), /Опора/);
   await context.close();
 });
+
+
+test("unconfigured cloud stays local-only and makes no external requests", async (t) => {
+  const browser = await chromium.launch({ headless: true });
+  t.after(() => browser.close());
+  const page = await browser.newPage();
+  const externalRequests = [];
+  page.on("request", (request) => {
+    if (new URL(request.url()).origin !== origin) externalRequests.push(request.url());
+  });
+  await page.goto(origin, { waitUntil: "networkidle" });
+  await page.evaluate(() => go("rep"));
+  await page.locator("#opora-cloud-title").waitFor();
+  assert.match(await page.locator("#v").innerText(), /Backend не настроен/);
+  assert.deepEqual(externalRequests, []);
+});
