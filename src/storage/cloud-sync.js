@@ -52,7 +52,13 @@
         return { ok: false, error: "remote-read-failed", detail: error };
       }
 
-      var remoteRevision = remote && remote.revision != null ? remote.revision : null;
+      if (!remote || typeof remote !== "object" || remote.revision === null || remote.revision === undefined) {
+        return { ok: false, error: "invalid-remote-response" };
+      }
+      if (localSnapshot === null || typeof localSnapshot !== "object" || Array.isArray(localSnapshot)) {
+        return { ok: false, error: "invalid-local-snapshot" };
+      }
+      var remoteRevision = remote.revision;
       if (remoteRevision !== localRevision) {
         return {
           ok: false,
@@ -80,10 +86,10 @@
         if (!result || result.ok !== true) {
           return { ok: false, error: "remote-write-rejected", detail: result || null };
         }
-        return {
-          ok: true,
-          revision: result.revision == null ? null : result.revision
-        };
+        if (result.revision === null || result.revision === undefined) {
+          return { ok: false, error: "invalid-remote-response" };
+        }
+        return { ok: true, revision: result.revision };
       } catch (error) {
         return { ok: false, error: "remote-write-failed", detail: error };
       }

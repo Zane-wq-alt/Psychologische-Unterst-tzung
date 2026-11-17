@@ -95,3 +95,41 @@ test("cloud compare-and-swap conflict is surfaced without treating it as success
   assert.equal(result.error, "revision-conflict");
   assert.equal(result.remoteRevision, "v2");
 });
+
+test("cloud sync rejects remote responses without a revision", async () => {
+  let writes = 0;
+  const sync = CloudSync.create({ transport: { pull: async () => ({ snapshot: {} }), push: async () => { writes++; return { ok: true, revision: "v2" }; } } });
+  sync.enable(true);
+  const result = await sync.sync({}, null);
+  assert.equal(result.ok, false);
+  assert.equal(result.error, "invalid-remote-response");
+  assert.equal(writes, 0);
+});
+
+test("cloud sync rejects invalid local snapshots before writing", async () => {
+  let writes = 0;
+  const sync = CloudSync.create({ transport: { pull: async () => ({ revision: "v1" }), push: async () => { writes++; return { ok: true, revision: "v2" }; } } });
+  sync.enable(true);
+  const result = await sync.sync(["not", "a", "state-object"], "v1");
+  assert.equal(result.ok, false);
+  assert.equal(result.error, "invalid-local-snapshot");
+  assert.equal(writes, 0);
+});
+
+test("cloud sync does not report success when backend omits its new revision", async () => {
+  const sync = CloudSync.create({ transport: { pull: async () => ({ revision: "v1" }), push: async () => ({ ok: true }) } });
+  sync.enable(true);
+  const result = await sync.sync({ marker: "local" }, "v1");
+  assert.equal(result.ok, false);
+  assert.equal(result.error, "invalid-remote-response");
+});
+
+test("remote deletion requires enabled sync and explicit transport support", async () => {
+  let deleted = 0;
+  const sync = CloudSync.create({ transport: { pull: async () => ({ revision: "v1" }), push: async () => ({ ok: true, revision: "v2" }), deleteRemote: async () => { deleted++; return { ok: true }; } } });
+  assert.equal((await sync.deleteRemote()).error, "sync-disabled");
+  assert.equal(deleted, 0);
+  sync.enable(true);
+  assert.equal((await sync.deleteRemote()).ok, true);
+  assert.equal(deleted, 1);
+});
