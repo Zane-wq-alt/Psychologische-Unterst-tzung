@@ -431,7 +431,7 @@ test("import preview validates and normalizes data without writing or creating b
   const db = OporaStorage.create({ key: "opora_v2_data_v1", defaults, storage });
   const preview = db.previewImport(JSON.stringify({ ci: [{ d: "incoming" }], extra: true }));
   assert.equal(preview.ok, true);
-  assert.deepEqual(preview.recordCounts, { ci: 1 });
+  assert.deepEqual(preview.recordCounts, { ci: 1, ep: 0, ev: 0, chat: 0, notes: 0, cc: 0, cp: 0 });
   assert.equal(preview.state.schemaVersion, 1);
   assert.equal(storage.getItem("opora_v2_data_v1"), current);
   assert.equal(db.listBackups().length, 0);
