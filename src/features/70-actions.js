@@ -84,7 +84,7 @@ document.addEventListener("keydown",function(e){if(e.key=="Escape"&&!$("sos").hi
 
 ACT.cloudlogin=async function(){
  var result=await CLOUD.sendMagicLink($("cloud-email")&&$("cloud-email").value);
- toast(result.ok?"Ссылка для входа отправлена. Откройте письмо на этом устройстве.":result.error==="invalid-email"?"Проверьте адрес почты":"Не удалось отправить ссылку для входа","err");
+ toast(result.ok?"Ссылка для входа отправлена. Откройте письмо на этом устройстве.":result.error==="invalid-email"?"Проверьте адрес почты":"Не удалось отправить ссылку для входа",result.ok?"ok":"err");
 };
 ACT.cloudenable=function(){
  var result=CLOUD.enable(!!($("cloud-consent")&&$("cloud-consent").checked));

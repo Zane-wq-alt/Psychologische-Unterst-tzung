@@ -33,7 +33,7 @@ test("cloud controller requires sign-in and a separate consent before enabling",
   assert.equal(signedIn.enable(false).error, "explicit-consent-required");
   assert.equal(signedIn.enable(true).ok, true);
   assert.match(signedIn.render(), /Синхронизировать сейчас/);
-  assert.match(signedIn.render(), /сквозным шифрованием/);
+  assert.match(signedIn.render(), /end-to-end encrypted/);
 });
 
 test("cloud controller exposes a remote conflict for explicit restore, never silent replacement", async () => {

@@ -68,7 +68,7 @@ test("expired sessions refresh once and sign-out clears local session", async ()
     url: "https://example.supabase.co", anonKey: "public-key", storage,
     fetch: async (url, init) => {
       requests.push({ url, init });
-      if (url.includes("grant_type=refresh_token")) return response(200, {
+      if (url.includes("grant_type=refresh_token") || url.endsWith("/auth/v1/verify")) return response(200, {
         access_token: "new-access", refresh_token: "new-refresh", expires_in: 3600,
         user: { id: "u1", email: "person@example.com" }
       });
