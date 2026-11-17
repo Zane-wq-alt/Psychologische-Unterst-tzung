@@ -14,6 +14,7 @@
     options = options || {};
     var transport = options.transport || null;
     var enabled = false;
+    var lastRevision = options.revision == null ? null : options.revision;
 
     function configured() {
       return !!transport &&
@@ -25,7 +26,8 @@
       return {
         enabled: enabled,
         configured: configured(),
-        mode: enabled ? "enabled" : "local-only"
+        mode: enabled ? "enabled" : "local-only",
+        lastRevision: lastRevision
       };
     }
 
@@ -43,6 +45,7 @@
 
     async function sync(localSnapshot, localRevision) {
       if (!enabled) return { ok: false, error: "sync-disabled" };
+      if (localRevision === undefined) localRevision = lastRevision;
       if (!configured()) return { ok: false, error: "backend-not-configured" };
 
       var remote;
@@ -59,14 +62,27 @@
         return { ok: false, error: "invalid-local-snapshot" };
       }
       var remoteRevision = remote.revision;
-      if (remoteRevision !== localRevision) {
+      var remoteSnapshot = remote.snapshot;
+      if (!remoteSnapshot || typeof remoteSnapshot !== "object" || Array.isArray(remoteSnapshot)) {
+        return { ok: false, error: "invalid-remote-snapshot" };
+      }
+      if (localRevision === null || localRevision === undefined) {
+        if (remoteRevision !== 0) {
+          var localEmpty = Object.keys(localSnapshot).length === 0;
+          return {
+            ok: false, conflict: !localEmpty,
+            error: localEmpty ? "remote-available" : "revision-conflict",
+            localRevision: null, remoteRevision: remoteRevision, remoteSnapshot: remoteSnapshot
+          };
+        }
+        if (Object.keys(localSnapshot).length === 0) {
+          lastRevision = 0;
+          return { ok: true, unchanged: true, revision: 0 };
+        }
+      } else if (remoteRevision !== localRevision) {
         return {
-          ok: false,
-          conflict: true,
-          error: "revision-conflict",
-          localRevision: localRevision == null ? null : localRevision,
-          remoteRevision: remoteRevision,
-          remoteSnapshot: remote && remote.snapshot
+          ok: false, conflict: true, error: "revision-conflict",
+          localRevision: localRevision, remoteRevision: remoteRevision, remoteSnapshot: remoteSnapshot
         };
       }
 
@@ -89,7 +105,8 @@
         if (result.revision === null || result.revision === undefined) {
           return { ok: false, error: "invalid-remote-response" };
         }
-        return { ok: true, revision: result.revision };
+        lastRevision = result.revision;
+        return { ok: true, revision: result.revision, bootstrapped: remoteRevision === 0 };
       } catch (error) {
         return { ok: false, error: "remote-write-failed", detail: error };
       }

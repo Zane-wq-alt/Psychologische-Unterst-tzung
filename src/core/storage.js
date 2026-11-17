@@ -7,6 +7,9 @@
 
   var VERSION = 1;
   var BACKUP_PREFIX = "opora_v2_backup_";
+  var MIGRATIONS = {
+    0: function (state) { state.schemaVersion = 1; return state; }
+  };
   var COLLECTIONS = ["ci", "ep", "ev", "chat", "notes", "cc", "cp"];
 
   function isObject(value) {
@@ -179,6 +182,15 @@
     function migrate(value) {
       validateState(value);
       var state = copy(value);
+      var currentVersion = Number.isInteger(state.schemaVersion) ? state.schemaVersion : 0;
+      while (currentVersion < VERSION) {
+        var migration = MIGRATIONS[currentVersion];
+        if (typeof migration !== "function") throw new Error("missing-schema-migration:" + currentVersion);
+        state = migration(state);
+        currentVersion = state.schemaVersion;
+        if (!Number.isInteger(currentVersion) || currentVersion <= 0) throw new Error("invalid-migration-result");
+        validateState(state);
+      }
       mergeDefaults(state, defaults, "");
       state.schemaVersion = VERSION;
       validateState(state);
