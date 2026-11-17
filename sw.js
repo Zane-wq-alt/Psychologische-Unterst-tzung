@@ -1,4 +1,4 @@
-const CACHE = "opora-v17";
+const CACHE = "opora-v18";
 const FILES = ["./","./index.html","./manifest.webmanifest","./src/ui/legacy.css","./src/core/storage.js","./src/storage/cloud-sync.js","./src/storage/supabase-transport.js","./src/storage/supabase-config.js","./src/storage/supabase-auth.js","./src/storage/cloud-controller.js","./src/features/privacy.js","./src/legacy/00-assets-and-helpers.js","./src/legacy/10-state.js","./src/ui/20-navigation.js","./src/core/30-reference-data.js","./src/features/40-predictions.js","./src/features/50-views.js","./src/features/60-weekly.js","./src/features/70-actions.js","./src/features/80-audio.js","./src/features/90-breathing.js","./src/features/95-games-and-startup.js","./icon-192.png","./icon-512.png","./icon-maskable.png"];
 self.addEventListener("install", event => { event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(FILES))); });
 self.addEventListener("message", event => {

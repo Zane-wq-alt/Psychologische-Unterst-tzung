@@ -89,13 +89,30 @@
       catch (_) { return { ok: false, error: "invalid-callback" }; }
       var tokenHash = params.get("token_hash");
       var type = params.get("type");
+      var fragment = new URLSearchParams(String((locationLike && locationLike.hash) || "").replace(/^#/, ""));
+      var accessToken = fragment.get("access_token");
+      var refreshToken = fragment.get("refresh_token");
+      if (!tokenHash && accessToken && refreshToken) {
+        try {
+          writeSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+            expires_in: Number(fragment.get("expires_in")) || 3600,
+            user: null
+          });
+          if (historyLike && typeof historyLike.replaceState === "function" && locationLike) {
+            historyLike.replaceState({}, "", (locationLike.pathname || "/") + (params.toString() ? "?" + params.toString() : ""));
+          }
+          return { ok: true, session: readSession() };
+        } catch (error) { return { ok: false, error: "callback-session-failed", detail: error }; }
+      }
       if (!tokenHash) return { ok: true, skipped: true };
       if (["email", "magiclink"].indexOf(type) < 0) return { ok: false, error: "invalid-callback-type" };
       try {
         var result = await request("/auth/v1/verify", { token_hash: tokenHash, type: type });
         writeSession(result);
         if (historyLike && typeof historyLike.replaceState === "function" && locationLike) {
-          historyLike.replaceState({}, "", (locationLike.pathname || "/") + (locationLike.hash || ""));
+          historyLike.replaceState({}, "", (locationLike.pathname || "/") + (params.toString() ? "?" + params.toString() : ""));
         }
         return { ok: true, session: readSession() };
       } catch (error) { return { ok: false, error: "callback-verification-failed", detail: error }; }

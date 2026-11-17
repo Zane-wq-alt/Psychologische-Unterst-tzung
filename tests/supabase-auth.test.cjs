@@ -89,3 +89,21 @@ test("expired sessions refresh once and sign-out clears local session", async ()
   assert.equal(storage.getItem("opora_supabase_session_v1"), null);
   assert.equal(requests[2].url, "https://example.supabase.co/auth/v1/logout");
 });
+
+
+test("Supabase confirmation URL fragment is accepted and sensitive tokens are removed from the address", async () => {
+  const storage = memoryStore();
+  let cleaned;
+  const auth = Auth.create({
+    url: "https://example.supabase.co", anonKey: "public-key", storage,
+    fetch: async () => { throw new Error("fragment callback must not require another token exchange"); }
+  });
+  const result = await auth.handleCallback(
+    { search: "", pathname: "/index.html", hash: "#access_token=fragment-access&refresh_token=fragment-refresh&expires_in=3600&type=magiclink" },
+    { replaceState: (_state, _title, url) => { cleaned = url; } }
+  );
+  assert.equal(result.ok, true);
+  assert.equal(auth.getSession().access_token, "fragment-access");
+  assert.equal(cleaned, "/index.html");
+  assert.doesNotMatch(cleaned, /access_token|refresh_token/);
+});
