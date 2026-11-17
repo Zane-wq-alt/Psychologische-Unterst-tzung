@@ -90,3 +90,12 @@
 - PWA smoke test: Service Worker устанавливается, app shell открывается из precache при отключённой сети.
 - GitHub Actions run [44056484063](https://github.com/Zane-wq-alt/Psychologische-Unterst-tzung/actions/runs/44056484063): 60/60 unit tests и 2/2 browser tests passed; syntax check passed.
 - Это headless Chromium на Linux, а не ручной тест Android/iOS устройств. Для полного production sign-off нужны проверка на целевых браузерах и реальный Supabase backend с двумя аккаунтами.
+
+
+## Облачная интеграция — пользовательский слой
+
+- Добавлен Supabase Auth по одноразовой ссылке на почту; callback поддерживает стандартный fragment flow и token_hash flow.
+- Сессия хранится в sessionStorage текущей вкладки; access token обновляется через refresh token. В код и репозиторий не добавляются реальные project keys.
+- Центр приватности показывает форму входа, отдельное согласие с перечнем категорий данных, ручную синхронизацию, отключение, отдельное удаление облачной копии и восстановление remote snapshot только после подтверждения и создания локальной backup-копии.
+- Облачная отправка не запускается автоматически. Пока src/storage/supabase-config.js содержит пустые параметры, вход и sync недоступны, приложение работает local-only.
+- Реальный backend не развёрнут и не проверен двумя независимыми аккаунтами; это остаётся внешним блокером.
