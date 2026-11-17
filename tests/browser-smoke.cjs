@@ -53,7 +53,7 @@ test("browser app starts without runtime errors and import requires preview plus
   await page.goto(origin, { waitUntil: "networkidle" });
   await page.waitForFunction(() => document.querySelector("#v") && document.querySelector("#v").children.length > 0);
   assert.match(await page.title(), /Опора/);
-  await page.evaluate(() => go("rep"));
+  await page.evaluate(() => { localStorage.setItem("opora_cloud_consent_v1", "yes"); go("rep"); });
   await page.locator("#jd").fill(JSON.stringify({
     ci: [{ d: "2026-11-17", mood: 2, note: "browser round trip" }],
     p: { name: "Browser test", sens: [], trig: [] }
@@ -68,6 +68,7 @@ test("browser app starts without runtime errors and import requires preview plus
     return raw && JSON.parse(raw).ci && JSON.parse(raw).ci[0].note === "browser round trip";
   });
   assert.equal(await page.evaluate(() => Object.keys(localStorage).some((key) => key.startsWith("opora_v2_backup_"))), true);
+  assert.equal(await page.evaluate(() => localStorage.getItem("opora_cloud_consent_v1")), null);
   assert.deepEqual(pageErrors, []);
   await context.close();
 });
