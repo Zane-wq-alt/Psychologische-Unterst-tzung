@@ -36,3 +36,25 @@ test("all local scripts and styles referenced by index.html are precached", () =
     assert.ok(precache.has("./" + asset.replace(/^\.\//, "")), "Asset is precached: " + asset);
   }
 });
+
+
+test("active runtime contains no Claude, generative-AI SDKs, or model API endpoints", () => {
+  const html = read("index.html");
+  const scripts = [...html.matchAll(/<script src="([^"]+)"/g)].map((match) => match[1]);
+  assert.ok(scripts.length > 0, "runtime scripts must be discoverable from index.html");
+  for (const script of scripts) {
+    assert.ok(!/^https?:\/\//i.test(script), "runtime script must be local: " + script);
+    assert.doesNotMatch(read(script),
+      /window\.claude|@anthropic-ai|api\.anthropic\.com|anthropic\.com\/v1|api\.openai\.com|openai\.com\/v1|generativelanguage\.googleapis\.com|@google\/generative-ai|\bclaude\b/i,
+      "AI provider or model endpoint reference found in active runtime file: " + script);
+  }
+  assert.doesNotMatch(html, /<script[^>]+src=["']https?:\/\//i, "no third-party runtime script may be loaded");
+});
+
+test("runtime has no remote font or stylesheet dependency", () => {
+  const html = read("index.html");
+  const css = read("src/ui/legacy.css");
+  assert.doesNotMatch(html, /<link[^>]+(?:stylesheet|preconnect)[^>]+https?:\/\//i);
+  assert.doesNotMatch(css, /@import\s+url\s*\(\s*["']?https?:/i);
+  assert.doesNotMatch(css, /url\(\s*["']?https?:\/\/fonts\.googleapis\.com/i);
+});

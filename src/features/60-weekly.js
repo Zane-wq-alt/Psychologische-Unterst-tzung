@@ -257,7 +257,7 @@ V.me=function(){var p=S.p,c=completeness(),h='<div class="card hero">'+st("likey
 V.rep=function(){var arm=window._er,h=OporaPrivacy.render({cloud:OporaCloudSync.create().status(),data:S})+'<div class="card"><h2>Сохранение</h2><p id="cs2">'+E($("cs")?$("cs").textContent:"")+'</p><p class="mut">Данные хранятся локально в этом браузере. Облачная синхронизация отключена. Регулярно скачивайте резервную копию и храните её в безопасном месте.</p><p>'+B("Сохранить сейчас","savenow")+'</p></div>';
  h+='<div class="card"><h2>'+st("study",56,"inl")+'Отчёт для врача или психолога (14 дней)</h2><textarea id="rp" rows="14" readonly>'+E(report())+'</textarea><div class="row" style="margin-top:8px">'+B("Копировать","cprep")+B("Сохранить файлом","dlrep")+'</div></div>';
  var backupButtons=storageBlocked?B("Скачать исходные данные","dlraw"):B("Скачать копию (JSON)","dljson")+B("Чек-ины в таблицу (CSV)","dlcsv");
- h+='<div class="card"><h2>Резервная копия</h2><div class="row">'+backupButtons+'</div><label>Загрузить копию из файла<input type="file" id="imf" accept=".json,application/json"></label><label>Или вставьте JSON<textarea id="jd" rows="3"></textarea></label><p>'+B("Импортировать из поля","imp")+'</p><p class="mut">Импорт заменяет текущие данные только после проверки и создания локальной резервной копии.</p></div>';
+ h+='<div class="card"><h2>Резервная копия</h2><div class="row">'+backupButtons+'</div><label>Загрузить копию из файла<input type="file" id="imf" accept=".json,application/json"></label><label>Или вставьте JSON<textarea id="jd" rows="3"></textarea></label><p>'+B("Проверить JSON","imp")+'</p><div id="import-preview" class="card" hidden></div><p class="mut">Сначала проверьте содержимое и количество записей. Замена выполняется только после отдельного подтверждения и создания локальной резервной копии.</p></div>';
  var backups=STORAGE.listBackups();if(backups.length){h+='<div class="card"><h2>Локальные точки восстановления</h2>'+backups.map(function(x){return'<div class="row sp"><span>'+E(x.createdAt||x.key)+' <span class="mut">'+E(x.reason)+'</span></span>'+B("Восстановить","restore",x.key)+'</div>'}).join("")+'</div>'}
  if(storageBlocked&&STORAGE.raw()!==null)h+='<div class="card"><h2>Защита данных</h2><p class="mut">Приложение обнаружило повреждённые или неподдерживаемые данные и не перезаписывает их. Исходное содержимое можно сохранить кнопкой выше; для продолжения импортируйте исправную копию.</p></div>';
  h+='<div class="card"><h2>Сбросить данные</h2>'+(arm?'<p class="z zr">Текущие данные будут заменены пустым профилем. Перед этим приложение создаст локальную резервную копию.</p><div class="row">'+B("Да, сбросить всё","erase",null,"sos")+B("Отмена","erarm","0")+'</div>':B("Сбросить данные","erarm","1"))+'</div>';return h};
@@ -267,5 +267,30 @@ function report(){var lim=addDays(td(),-14),c=S.ci.filter(function(x){return x.d
  if(topHelp(3).length)r+="\nЧаще всего помогало: "+topHelp(3).join(", ");return r}
 function csv(){var q=function(v){return'"'+String(v==null?"":v).replace(/"/g,'""')+'"'};return"﻿"+["дата","время","настроение","энергия","сенсорика","тревога","соц_ресурс","маскинг","сон_ч","ел","пил","улица","отметки","заметка"].join(",")+"\n"+S.ci.map(function(c){return[c.d,tm(c.t),c.mood,c.en,c.sens,c.anx,c.soc,c.mask,c.sleep,c.ate?1:0,c.drank?1:0,c.out?1:0,(c.tags||[]).join("; "),c.n].map(q).join(",")}).join("\n")}
 function saveFile(name,data,type){try{var bl=new Blob([data],{type:type||"application/octet-stream"}),u=URL.createObjectURL(bl),an=document.createElement("a");an.href=u;an.download=name;document.body.appendChild(an);an.click();an.remove();setTimeout(function(){URL.revokeObjectURL(u)},4000);toast("Файл сохранён в «Загрузки»")}catch(e){toast("Не получилось сохранить файл")}}
-function importJSON(txt){var result=STORAGE.importText(txt);if(!result.ok){toast(result.error=="backup-failed"?"Не удалось создать резервную копию — импорт отменён":"Не удалось проверить или сохранить JSON","err");return}S=result.state;storageBlocked=false;VER++;localOK=true;applyUI();setCS();toast("Данные загружены","ok");go("today",1)}
+var pendingImportText=null;
+function previewJSON(txt){
+ var preview=STORAGE.previewImport(txt),panel=$("import-preview");
+ if(!preview.ok){pendingImportText=null;if(panel){panel.hidden=true;panel.textContent=""}toast(preview.error=="invalid-json"?"Файл не является корректным JSON":"Структура копии не поддерживается","err");return}
+ pendingImportText=txt;
+ if(panel){
+  panel.hidden=false;panel.textContent="";
+  var heading=document.createElement("h3");heading.textContent="Копия прошла проверку";panel.appendChild(heading);
+  var summary=document.createElement("p");
+  summary.textContent="Записей: "+Object.keys(preview.recordCounts).map(function(k){return k+" — "+preview.recordCounts[k]}).join(", ")+". Текущие данные будут заменены.";
+  panel.appendChild(summary);
+  var warning=document.createElement("p");warning.className="mut";warning.textContent="JSON не зашифрован. Убедитесь, что выбрали нужный файл.";
+  panel.appendChild(warning);
+  var row=document.createElement("div");row.className="row";
+  var confirmButton=document.createElement("button");confirmButton.type="button";confirmButton.dataset.a="impconfirm";confirmButton.textContent="Подтвердить замену";
+  var cancelButton=document.createElement("button");cancelButton.type="button";cancelButton.dataset.a="impcancel";cancelButton.textContent="Отмена";
+  row.appendChild(confirmButton);row.appendChild(cancelButton);panel.appendChild(row);
+ }
+ toast("Копия проверена. Подтвердите замену отдельно","ok");
+}
+function importJSON(txt){
+ var result=STORAGE.importText(txt);
+ if(!result.ok){toast(result.error=="backup-failed"?"Не удалось создать резервную копию — импорт отменён":"Не удалось сохранить JSON; исходные данные не заменены","err");return}
+ pendingImportText=null;var panel=$("import-preview");if(panel){panel.hidden=true;panel.textContent=""}
+ S=result.state;storageBlocked=false;VER++;localOK=true;applyUI();setCS();toast("Данные загружены, прежняя версия сохранена в резервной копии","ok");go("today",1)
+}
 function copyText(v,el){var fb=function(){var a=document.createElement("textarea");a.value=v;document.body.appendChild(a);a.select();try{document.execCommand("copy")}catch(e){}a.remove()};try{navigator.clipboard.writeText(v).catch(fb)}catch(e){fb()}if(el)el.style.borderColor="var(--g)";toast("Скопировано","ok")}

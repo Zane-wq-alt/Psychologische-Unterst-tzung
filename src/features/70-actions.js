@@ -59,7 +59,9 @@ ACT.cprep=function(b){copyText($("rp").value,b)};
 ACT.dlrep=function(){saveFile("opora-otchet.txt",$("rp").value)};
 ACT.dljson=function(){saveFile("opora-backup.json",STORAGE.exportText(S),"application/json")};
 ACT.dlcsv=function(){saveFile("opora-checkins.csv",csv())};
-ACT.imp=function(){importJSON($("jd").value)};
+ACT.imp=function(){previewJSON($("jd").value)};
+ACT.impconfirm=function(){if(pendingImportText===null)return;if(!window.confirm("Заменить текущие данные проверенной копией? Перед заменой будет создана локальная резервная копия."))return;importJSON(pendingImportText)};
+ACT.impcancel=function(){pendingImportText=null;var panel=$("import-preview");if(panel){panel.hidden=true;panel.textContent=""}toast("Импорт отменён")};
 ACT.erarm=function(b){window._er=b.dataset.v=="1";go("rep")};
 ACT.erase=function(){var fresh=STORAGE.fresh();fresh.ui=S.ui;var result=STORAGE.replaceState(fresh,"before-reset");if(!result.ok){toast("Не удалось создать резервную копию или сбросить данные","err");return}VER++;window._er=false;S=result.state;storageBlocked=false;localOK=true;setCS();go("today",1);toast("Данные сброшены; предыдущая версия сохранена в резервной копии","ok")};
 ACT.restore=function(b){var result=STORAGE.restoreBackup(b.dataset.v);if(!result.ok){toast("Не удалось восстановить эту копию","err");return}var loaded=STORAGE.load();S=loaded.state;storageBlocked=!loaded.ok;localOK=loaded.ok;if(loaded.ok)VER++;applyUI();setCS();go("rep",1);toast(loaded.ok?"Копия восстановлена":"Копия восстановлена, но её формат требует проверки","ok")};
@@ -72,7 +74,7 @@ document.addEventListener("change",function(e){var t=e.target;
  else if((t.dataset&&t.dataset.m)||t.id=="avol"){sv()}
  else if(t.dataset&&t.dataset.a=="spt"){ACT.spt(t)}
  else if(t.dataset&&t.dataset.a=="sttask"){ACT.sttask(t)}
- else if(t.id=="imf"&&t.files&&t.files[0]){var r=new FileReader();r.onload=function(){importJSON(String(r.result))};r.readAsText(t.files[0])}});
+ else if(t.id=="imf"&&t.files&&t.files[0]){var r=new FileReader();r.onload=function(){previewJSON(String(r.result))};r.readAsText(t.files[0])}});
 var slT=0;function svLater(){clearTimeout(slT);slT=setTimeout(sv,500)}
 function profUpd(){var c=completeness(),m=$("pm"),t=$("pmt");if(m)m.style.width=c+"%";if(t)t.textContent="Заполнено на "+c+"%";toast("Сохранено")}
 document.addEventListener("input",function(e){var t=e.target;if(t.dataset&&t.dataset.m){S.ui.snd.mix[t.dataset.m]=+t.value;var ml=$("mv_"+t.dataset.m);if(ml)ml.textContent=t.value;aApply();svLater()}if(t.id=="avol"){S.ui.snd.vol=+t.value;var vl=$("vo");if(vl)vl.textContent=t.value;aApply();svLater()}if(t.type=="range"&&t.id&&t.id.indexOf("s_")==0){var l=$("o_"+t.id.slice(2));if(l)l.textContent=t.value}});

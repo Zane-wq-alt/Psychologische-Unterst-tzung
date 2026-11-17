@@ -1,4 +1,4 @@
-const CACHE = "opora-v15";
+const CACHE = "opora-v16";
 const FILES = ["./","./index.html","./manifest.webmanifest","./src/ui/legacy.css","./src/core/storage.js","./src/storage/cloud-sync.js","./src/storage/supabase-transport.js","./src/features/privacy.js","./src/legacy/00-assets-and-helpers.js","./src/legacy/10-state.js","./src/ui/20-navigation.js","./src/core/30-reference-data.js","./src/features/40-predictions.js","./src/features/50-views.js","./src/features/60-weekly.js","./src/features/70-actions.js","./src/features/80-audio.js","./src/features/90-breathing.js","./src/features/95-games-and-startup.js","./icon-192.png","./icon-512.png","./icon-maskable.png"];
 self.addEventListener("install", event => { event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(FILES)).then(() => self.skipWaiting())); });
 self.addEventListener("activate", event => { event.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(key => key.startsWith("opora-") && key !== CACHE).map(key => caches.delete(key)))).then(() => self.clients.claim())); });
