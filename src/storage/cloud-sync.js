@@ -19,7 +19,8 @@
     function configured() {
       return !!transport &&
         typeof transport.pull === "function" &&
-        typeof transport.push === "function";
+        typeof transport.push === "function" &&
+        (typeof transport.configured !== "function" || transport.configured() === true);
     }
 
     function status() {
