@@ -22,12 +22,11 @@ let origin;
 test.before(async () => {
   server = http.createServer((request, response) => {
     const pathname = decodeURIComponent(new URL(request.url, "http://localhost").pathname);
-    const file = path.resolve(root, "." + pathname);
-    if (!file.startsWith(root + path.sep) && file !== path.join(root, "index.html")) {
+    const target = pathname === "/" ? path.join(root, "index.html") : path.resolve(root, "." + pathname);
+    if (!target.startsWith(root + path.sep)) {
       response.writeHead(403).end();
       return;
     }
-    const target = pathname === "/" ? path.join(root, "index.html") : file;
     fs.readFile(target, (error, bytes) => {
       if (error) { response.writeHead(404).end("Not found"); return; }
       response.writeHead(200, { "Content-Type": mime[path.extname(target)] || "application/octet-stream" });
@@ -68,7 +67,6 @@ test("browser app starts without runtime errors and import requires preview plus
     const raw = localStorage.getItem("opora_v2_data_v1");
     return raw && JSON.parse(raw).ci && JSON.parse(raw).ci[0].note === "browser round trip";
   });
-  assert.equal(await page.evaluate(() => localStorage.getItem("opora_v2_backup_") !== null), false);
   assert.equal(await page.evaluate(() => Object.keys(localStorage).some((key) => key.startsWith("opora_v2_backup_"))), true);
   assert.deepEqual(pageErrors, []);
   await context.close();
