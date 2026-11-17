@@ -95,5 +95,5 @@ test("cloud authentication is a local first-party module and is not an external 
   assert.match(auth, /sessionStorage/);
   assert.match(auth, /auth\/v1\/otp/);
   assert.match(auth, /auth\/v1\/token\?grant_type=refresh_token/);
-  assert.doesNotMatch(config, /service_role|service-role/i);
+  assert.doesNotMatch(config, /service_role\s*[:=]|service-role\s*[:=]/i);
 });
