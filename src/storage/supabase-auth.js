@@ -93,6 +93,7 @@
       var accessToken = fragment.get("access_token");
       var refreshToken = fragment.get("refresh_token");
       if (!tokenHash && accessToken && refreshToken) {
+        if (["email", "magiclink"].indexOf(fragment.get("type")) < 0) return { ok: false, error: "invalid-callback-type" };
         try {
           writeSession({
             access_token: accessToken,
@@ -112,7 +113,9 @@
         var result = await request("/auth/v1/verify", { token_hash: tokenHash, type: type });
         writeSession(result);
         if (historyLike && typeof historyLike.replaceState === "function" && locationLike) {
-          historyLike.replaceState({}, "", (locationLike.pathname || "/") + (params.toString() ? "?" + params.toString() : ""));
+          var cleanParams = new URLSearchParams(params.toString());
+          cleanParams.delete("token_hash"); cleanParams.delete("type");
+          historyLike.replaceState({}, "", (locationLike.pathname || "/") + (cleanParams.toString() ? "?" + cleanParams.toString() : ""));
         }
         return { ok: true, session: readSession() };
       } catch (error) { return { ok: false, error: "callback-verification-failed", detail: error }; }
