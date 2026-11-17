@@ -105,3 +105,56 @@ test("unconfigured cloud stays local-only and makes no external requests", async
   assert.match(await page.locator("#v").innerText(), /Backend не настроен/);
   assert.deepEqual(externalRequests, []);
 });
+
+test("a stale tab stops saving after another tab changed the data and can reload fresh data", async (t) => {
+  const browser = await chromium.launch({ headless: true });
+  t.after(() => browser.close());
+  const context = await browser.newContext();
+  const first = await context.newPage();
+  const second = await context.newPage();
+  const errors = [];
+  first.on("pageerror", (error) => errors.push(error.message));
+  second.on("pageerror", (error) => errors.push(error.message));
+  second.on("dialog", (dialog) => dialog.accept());
+  for (const page of [first, second]) {
+    await page.goto(origin, { waitUntil: "networkidle" });
+    await page.waitForFunction(() => document.querySelector("#v") && document.querySelector("#v").children.length > 0);
+  }
+  await first.evaluate(() => { flushLocal(); });
+
+  await second.evaluate(() => { S.notes.push({ id: 1, tx: "written in the second tab" }); flushLocal(); });
+  await first.waitForFunction(() => document.getElementById("ext") !== null, null, { timeout: 5000 });
+  const rawBefore = await second.evaluate(() => localStorage.getItem("opora_v2_data_v1"));
+
+  await first.evaluate(() => { S.notes.push({ id: 2, tx: "stale write" }); flushLocal(); });
+  assert.equal(await first.evaluate(() => localStorage.getItem("opora_v2_data_v1")), rawBefore,
+    "stale tab must not overwrite data from the other tab");
+
+  await first.locator('[data-a="extreload"]').click();
+  await first.waitForFunction(() => document.getElementById("ext") === null);
+  assert.equal(await first.evaluate(() => S.notes.length), 1);
+  await first.evaluate(() => { S.notes.push({ id: 3, tx: "after reload" }); flushLocal(); });
+  assert.equal(await first.evaluate(() => JSON.parse(localStorage.getItem("opora_v2_data_v1")).notes.length), 2);
+  assert.deepEqual(errors, []);
+});
+
+test("unhandled errors produce a local notice and a local journal entry without breaking the app", async (t) => {
+  const browser = await chromium.launch({ headless: true });
+  t.after(() => browser.close());
+  const page = await (await browser.newContext()).newPage();
+  const requests = [];
+  page.on("request", (request) => { if (!request.url().startsWith(origin) && !request.url().startsWith("data:")) requests.push(request.url()); });
+  await page.goto(origin, { waitUntil: "networkidle" });
+  await page.waitForFunction(() => document.querySelector("#v") && document.querySelector("#v").children.length > 0);
+
+  await page.evaluate(() => { setTimeout(() => { throw new Error("test-unhandled"); }, 0); });
+  await page.waitForFunction(() => OporaErrors.count() === 1);
+  assert.match(await page.locator("#toast").innerText(), /данные не потеряны/i);
+  await page.evaluate(() => { Promise.reject(new Error("test-rejection")); });
+  await page.waitForFunction(() => OporaErrors.count() === 2);
+
+  await page.evaluate(() => { go("rep", 1); });
+  assert.equal(await page.locator('[data-a="dlerr"]').count(), 1);
+  assert.ok(await page.evaluate(() => typeof go === "function" && !!document.querySelector("#v").children.length));
+  assert.deepEqual(requests, [], "error reporting must not use the network");
+});

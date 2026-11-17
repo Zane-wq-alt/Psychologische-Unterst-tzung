@@ -20,8 +20,12 @@ if(window.location.search.indexOf("token_hash=")>-1||window.location.hash.indexO
 });
 try{rollSp(true)}catch(e){}
 if(LOAD.ok&&LOAD.status=="empty")localOK=STORAGE.save(S).ok;
-function saveLocal(){if(storageBlocked)return false;var result=STORAGE.save(S);return result.ok}
-function setCS(){var e=$("cs");if(e)e.textContent=storageBlocked?"Хранилище не изменено: обнаружена ошибка. Импортируйте корректную копию или скачайте исходные данные.":!localOK?"Не удалось сохранить локально — скачайте копию и проверьте свободное место":migrationNotice?(LOAD.migration&&!LOAD.migration.markerSaved?"Данные перенесены и проверены; исходная копия сохранена, но маркер переноса записать не удалось.":"Данные перенесены в новое локальное хранилище; исходная копия сохранена."):"Сохранено на устройстве"}
+var DATA_KEY="opora_v2_data_v1",externalChange=false;
+function extBanner(){return'<div class="card z zy" id="ext"><b>Данные изменила другая вкладка «Опоры».</b><br>Чтобы ничего не потерять, сохранение в этой вкладке остановлено. Загрузите свежие данные или осознанно сохраните версию этой вкладки: перед заменой будет создана локальная копия.<div class="row" style="margin-top:8px">'+B("Загрузить свежие данные","extreload",null,"pri")+B("Сохранить версию этой вкладки","extkeep")+'</div></div>'}
+function flagExternalChange(){if(externalChange)return;externalChange=true;if(lsT){clearTimeout(lsT);lsT=0}setCS();var v=$("v");if(v&&!$("ext"))v.insertAdjacentHTML("afterbegin",extBanner())}
+function saveLocal(){if(storageBlocked)return false;if(externalChange)return false;var result=STORAGE.save(S);if(!result.ok&&result.error=="external-change")flagExternalChange();return result.ok}
+try{addEventListener("storage",function(e){if(externalChange||storageBlocked)return;if(e.key!==null&&e.key!==DATA_KEY)return;if(STORAGE.hasExternalChange())flagExternalChange()})}catch(_){}
+function setCS(){var e=$("cs");if(e)e.textContent=externalChange?"Сохранение остановлено: данные изменила другая вкладка. Загрузите свежие данные или сохраните версию этой вкладки.":storageBlocked?"Хранилище не изменено: обнаружена ошибка. Импортируйте корректную копию или скачайте исходные данные.":!localOK?"Не удалось сохранить локально — скачайте копию и проверьте свободное место":migrationNotice?(LOAD.migration&&!LOAD.migration.markerSaved?"Данные перенесены и проверены; исходная копия сохранена, но маркер переноса записать не удалось.":"Данные перенесены в новое локальное хранилище; исходная копия сохранена."):"Сохранено на устройстве"}
 setCS();
 function saveSoon(){if(lsT)return;lsT=setTimeout(function(){lsT=0;localOK=saveLocal()||false;setCS()},300)}
 function flushLocal(){if(lsT){clearTimeout(lsT);lsT=0}localOK=saveLocal()||false;setCS()}

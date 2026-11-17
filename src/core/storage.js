@@ -272,7 +272,28 @@
       }
     }
 
+    // Последняя строка данных, которую эта вкладка прочитала или записала сама.
+    // undefined — неизвестна (например, загрузка не удалась): тогда сверка не выполняется.
+    var knownRaw;
+
+    function remember() {
+      try { knownRaw = readCurrentRaw(); }
+      catch (_) { knownRaw = undefined; }
+    }
+
+    function hasExternalChange() {
+      if (knownRaw === undefined) return false;
+      try { return readCurrentRaw() !== knownRaw; }
+      catch (_) { return false; }
+    }
+
     function load() {
+      var result = loadInternal();
+      if (result.ok) remember(); else knownRaw = undefined;
+      return result;
+    }
+
+    function loadInternal() {
       var raw;
       var sourceKey = key;
       try {
@@ -349,6 +370,12 @@
         return { ok: false, error: "read-failed", detail: error };
       }
 
+      // Данные в хранилище изменила другая вкладка или окно после нашей последней
+      // загрузки/записи: молча перезаписать их нельзя.
+      if (knownRaw !== undefined && oldRaw !== knownRaw) {
+        return { ok: false, error: "external-change" };
+      }
+
       var previousNeedsMigration = false;
       if (oldRaw !== null) {
         try {
@@ -367,6 +394,7 @@
       if (previousNeedsMigration || stateNeedsNormalization) {
         var protectedWrite = writeWithBackup(normalized, "schema-migration", oldRaw);
         if (!protectedWrite.ok) return protectedWrite;
+        remember();
         return {
           ok: true,
           state: normalized,
@@ -380,6 +408,7 @@
         var written = storage.getItem(key);
         if (written !== serialized) throw new Error("write-verification-failed");
         validateState(JSON.parse(written));
+        knownRaw = written;
         return { ok: true, state: normalized, backupKey: null };
       } catch (error) {
         return {
@@ -403,6 +432,7 @@
       catch (error) { return { ok: false, error: "read-failed", detail: error }; }
       var result = writeWithBackup(normalized, reason || "replace-data", oldRaw);
       if (!result.ok) return result;
+      remember();
       return { ok: true, state: normalized, backupKey: result.backupKey };
     }
 
@@ -485,6 +515,7 @@
           rollbackOk: rollbackRaw(raw)
         };
       }
+      remember();
       return { ok: true, backupKey: currentBackup, raw: entry.raw };
     }
 
@@ -507,6 +538,7 @@
       validate: validateState,
       load: load,
       save: save,
+      hasExternalChange: hasExternalChange,
       replaceState: replaceState,
       importText: importText,
       previewImport: previewImport,
