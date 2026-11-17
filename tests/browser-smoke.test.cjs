@@ -1,0 +1,92 @@
+"use strict";
+
+const test = require("node:test");
+const assert = require("node:assert/strict");
+const http = require("node:http");
+const fs = require("node:fs");
+const path = require("node:path");
+const { chromium } = require("playwright");
+
+const root = path.resolve(__dirname, "..");
+const mime = {
+  ".html": "text/html; charset=utf-8",
+  ".js": "text/javascript; charset=utf-8",
+  ".css": "text/css; charset=utf-8",
+  ".webmanifest": "application/manifest+json",
+  ".png": "image/png"
+};
+
+let server;
+let origin;
+
+test.before(async () => {
+  server = http.createServer((request, response) => {
+    const pathname = decodeURIComponent(new URL(request.url, "http://localhost").pathname);
+    const file = path.resolve(root, "." + pathname);
+    if (!file.startsWith(root + path.sep) && file !== path.join(root, "index.html")) {
+      response.writeHead(403).end();
+      return;
+    }
+    const target = pathname === "/" ? path.join(root, "index.html") : file;
+    fs.readFile(target, (error, bytes) => {
+      if (error) { response.writeHead(404).end("Not found"); return; }
+      response.writeHead(200, { "Content-Type": mime[path.extname(target)] || "application/octet-stream" });
+      response.end(bytes);
+    });
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  origin = "http://127.0.0.1:" + server.address().port;
+});
+
+test.after(async () => {
+  if (server) await new Promise((resolve) => server.close(resolve));
+});
+
+test("browser app starts without runtime errors and import requires preview plus confirmation", async (t) => {
+  const browser = await chromium.launch({ headless: true });
+  t.after(() => browser.close());
+  const context = await browser.newContext({ acceptDownloads: true });
+  const page = await context.newPage();
+  const pageErrors = [];
+  page.on("pageerror", (error) => pageErrors.push(error.message));
+  page.on("dialog", (dialog) => dialog.accept());
+
+  await page.goto(origin, { waitUntil: "networkidle" });
+  await page.waitForFunction(() => document.querySelector("#v") && document.querySelector("#v").children.length > 0);
+  assert.match(await page.title(), /Опора/);
+  await page.evaluate(() => go("rep"));
+  await page.locator("#jd").fill(JSON.stringify({
+    ci: [{ d: "2026-11-17", mood: 2, note: "browser round trip" }],
+    p: { name: "Browser test", sens: [], trig: [] }
+  }));
+  await page.locator('[data-a="imp"]').click();
+  await page.locator("#import-preview:not([hidden])").waitFor();
+  assert.match(await page.locator("#import-preview").innerText(), /Копия прошла проверку/);
+  assert.match(await page.locator("#import-preview").innerText(), /ci — 1/);
+  await page.locator('[data-a="impconfirm"]').click();
+  await page.waitForFunction(() => {
+    const raw = localStorage.getItem("opora_v2_data_v1");
+    return raw && JSON.parse(raw).ci && JSON.parse(raw).ci[0].note === "browser round trip";
+  });
+  assert.equal(await page.evaluate(() => localStorage.getItem("opora_v2_backup_") !== null), false);
+  assert.equal(await page.evaluate(() => Object.keys(localStorage).some((key) => key.startsWith("opora_v2_backup_"))), true);
+  assert.deepEqual(pageErrors, []);
+  await context.close();
+});
+
+test("PWA installs its service worker and the app shell reloads from cache offline", async (t) => {
+  const browser = await chromium.launch({ headless: true });
+  t.after(() => browser.close());
+  const context = await browser.newContext({ serviceWorkers: "allow" });
+  const page = await context.newPage();
+  await page.goto(origin, { waitUntil: "networkidle" });
+  await page.waitForFunction(() => navigator.serviceWorker && navigator.serviceWorker.controller, { timeout: 15000 }).catch(async () => {
+    await page.reload({ waitUntil: "networkidle" });
+    await page.waitForFunction(() => navigator.serviceWorker && navigator.serviceWorker.controller, { timeout: 15000 });
+  });
+  await page.route("**/*", (route) => route.abort());
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.locator("#v").waitFor();
+  assert.match(await page.locator("h1").innerText(), /Опора/);
+  await context.close();
+});

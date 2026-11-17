@@ -21,3 +21,10 @@ jobs:
           done
       - name: Run unit tests
         run: node --test tests/*.test.cjs
+
+      - name: Install browser test dependency
+        run: npm install --no-package-lock
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Run browser smoke tests
+        run: npm run test:browser
