@@ -371,7 +371,7 @@ test("namespace migration failure leaves legacy source unchanged and does not cr
   const storage = memoryStorage({ opora_v2: raw });
   const originalSet = storage.setItem;
   storage.setItem = function (key, value) {
-    if (String(key).startsWith("opora_v2_data_v1_backup_")) throw new Error("quota");
+    if (String(key).startsWith("opora_v2_backup_")) throw new Error("quota");
     originalSet.call(storage, key, value);
   };
   const db = OporaStorage.create({ key: "opora_v2_data_v1", legacyKey: "opora_v2", defaults, storage });
