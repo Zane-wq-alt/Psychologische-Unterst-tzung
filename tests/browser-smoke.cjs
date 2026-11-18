@@ -199,3 +199,36 @@ test("selective deletion removes only the chosen sections, keeps a restore point
   assert.equal(await page.evaluate(() => S.notes.length), 1);
   assert.deepEqual(errors, []);
 });
+
+test("browser WebCrypto round trip with production KDF settings and encrypted cloud controller panel", async (t) => {
+  const browser = await chromium.launch({ headless: true });
+  t.after(() => browser.close());
+  const page = await (await browser.newContext()).newPage();
+  const errors = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.goto(origin, { waitUntil: "networkidle" });
+  await page.waitForFunction(() => document.querySelector("#v") && document.querySelector("#v").children.length > 0);
+
+  const result = await page.evaluate(async () => {
+    const started = performance.now();
+    const vault = await OporaE2ECrypto.createVault("correct horse battery");
+    const envelope = await OporaE2ECrypto.encryptSnapshot(vault.dek, vault.wraps, { ci: [{ note: "секрет" }] });
+    const dek = await OporaE2ECrypto.unlockWithPassphrase(envelope.wraps, "correct horse battery");
+    const back = await OporaE2ECrypto.decryptSnapshot(dek, envelope);
+    return { ms: performance.now() - started, iter: envelope.wraps[0].iter, leaked: JSON.stringify(envelope).includes("секрет"), note: back.ci[0].note };
+  });
+  assert.equal(result.iter, 600000);
+  assert.equal(result.leaked, false);
+  assert.equal(result.note, "секрет");
+  assert.ok(result.ms < 15000, "KDF finishes in a reasonable time: " + result.ms);
+
+  const html = await page.evaluate(() => {
+    const auth = { getSession: () => ({ user: { email: "a@b.c" } }), getAccessToken: async () => "t" };
+    const inner = { configured: () => true, pull: async () => ({ revision: 0, snapshot: {} }), push: async () => ({ ok: true, revision: 1 }) };
+    return OporaCloudController.create({ config: {}, auth, transport: OporaE2ETransport.create({ transport: inner }) }).render();
+  });
+  assert.match(html, /data-a="cloudkey"/);
+  assert.match(html, /шифруются на этом устройстве/);
+  assert.doesNotMatch(html, /Синхронизировать сейчас/);
+  assert.deepEqual(errors, []);
+});

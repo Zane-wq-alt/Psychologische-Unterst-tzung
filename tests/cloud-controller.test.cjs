@@ -20,7 +20,8 @@ function fakeAuth(signedIn) {
 test("cloud controller stays disabled and unconfigured without backend settings", () => {
   const controller = Controller.create({ config: {}, auth: fakeAuth(false), transport: { configured: () => false, pull: async () => ({}), push: async () => ({}) } });
   assert.deepEqual(controller.status(), {
-    configured: false, enabled: false, signedIn: false, email: null, revision: null, pendingRemote: false
+    configured: false, enabled: false, signedIn: false, email: null, revision: null,
+    e2e: "off", recoveryKeyPending: false, pendingRemote: false
   });
   assert.match(controller.render(), /Backend не настроен/);
 });

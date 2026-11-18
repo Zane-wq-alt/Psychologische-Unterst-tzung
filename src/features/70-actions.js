@@ -103,6 +103,23 @@ ACT.cloudlogin=async function(){
  var result=await CLOUD.sendMagicLink($("cloud-email")&&$("cloud-email").value);
  toast(result.ok?"Ссылка для входа отправлена. Откройте письмо на этом устройстве.":result.error==="invalid-email"?"Проверьте адрес почты":"Не удалось отправить ссылку для входа",result.ok?"ok":"err");
 };
+function e2eMsg(code){return({"e2e-wrong-key":"Фраза или ключ не подходят к облачной копии","e2e-passphrase-too-short":"Фраза должна быть не короче 10 символов","e2e-passphrase-mismatch":"Фразы не совпадают","e2e-recovery-key-invalid":"Ключ восстановления записан неверно","e2e-not-encrypted":"В облаке лежит нешифрованная копия — приложение её не откроет","e2e-malformed":"Облачная копия повреждена или имеет неизвестный формат","e2e-unsupported-version":"Облачная копия создана более новой версией приложения","e2e-not-initialized":"В облаке нет зашифрованной копии","auth-required":"Сначала войдите в облачный аккаунт"})[code]||"Не удалось выполнить действие: "+code}
+function e2eUnlocked(created){if(CLOUD_CONSENT&&!created)CLOUD.enable(true);go("rep",1)}
+ACT.cloudkey=async function(){
+ var r=await CLOUD.e2eStart($("cloud-pass")?$("cloud-pass").value:"",$("cloud-pass2")?$("cloud-pass2").value:"");
+ if(!r.ok){toast(e2eMsg(r.error),"err");return}
+ e2eUnlocked(r.created);toast(r.created?"Шифрование настроено. Сохраните ключ восстановления.":"Облако разблокировано","ok")};
+ACT.cloudrecover=async function(){
+ var r=await CLOUD.e2eRecover($("cloud-recovery")?$("cloud-recovery").value:"");
+ if(!r.ok){toast(e2eMsg(r.error),"err");return}
+ e2eUnlocked(false);toast("Облако разблокировано ключом восстановления. Задайте новую фразу в разделе «Сменить парольную фразу».","ok")};
+ACT.cloudcopykey=function(b){var k=CLOUD.recoveryKeyOnce();if(k)copyText(k,b)};
+ACT.cloudackkey=function(){CLOUD.confirmRecoveryKey();if(CLOUD_CONSENT)CLOUD.enable(true);go("rep",1);toast("Ключ восстановления подтверждён","ok")};
+ACT.cloudchangepass=async function(){
+ var r=await CLOUD.e2eChangePassphrase($("cloud-newpass")?$("cloud-newpass").value:"",$("cloud-newpass2")?$("cloud-newpass2").value:"");
+ if(!r.ok){toast(e2eMsg(r.error),"err");return}
+ toast("Фраза заменена; она попадёт в облако при следующей синхронизации","ok")};
+ACT.cloudlock=function(){CLOUD.lockE2E();go("rep",1);toast("Облако заблокировано на этом устройстве")};
 ACT.cloudenable=function(){
  var result=CLOUD.enable(!!($("cloud-consent")&&$("cloud-consent").checked));
  if(!result.ok){toast(result.error==="auth-required"?"Сначала войдите в облачный аккаунт":"Нужно отдельное согласие и настроенный backend","err");return}
