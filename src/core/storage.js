@@ -444,6 +444,7 @@
         var normalized = migrate(parsed);
         delete normalized.cloudRevision;
         delete normalized.cloudConsent;
+        delete normalized.cloudBase;
         return { ok: true, state: normalized, recordCounts: recordCounts(normalized) };
       } catch (error) {
         return { ok: false, error: "invalid-import", detail: error };
@@ -557,6 +558,7 @@
       var exported = migrate(state);
       delete exported.cloudRevision;
       delete exported.cloudConsent;
+      delete exported.cloudBase;
       return JSON.stringify(exported, null, 2);
     }
 

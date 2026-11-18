@@ -64,7 +64,7 @@ ACT.impconfirm=function(){if(pendingImportText===null)return;if(!window.confirm(
 ACT.impcancel=function(){pendingImportText=null;var panel=$("import-preview");if(panel){panel.hidden=true;panel.textContent=""}toast("Импорт отменён")};
 ACT.erarm=function(b){window._er=b.dataset.v=="1";go("rep")};
 ACT.erase=function(){var fresh=STORAGE.fresh();fresh.ui=S.ui;var hadCloud=CLOUD_CONSENT;var result=STORAGE.replaceState(fresh,"before-reset");if(!result.ok){toast("Не удалось создать резервную копию или сбросить данные","err");return}CLOUD.disable();CLOUD_CONSENT=false;try{localStorage.removeItem(CLOUD_CONSENT_KEY)}catch(_){}VER++;window._er=false;S=result.state;storageBlocked=false;localOK=true;setCS();go("today",1);toast(hadCloud?"Локальные данные сброшены; облачная копия не удалена":"Данные сброшены; предыдущая версия сохранена в резервной копии","ok")};
-ACT.restore=function(b){var result=STORAGE.restoreBackup(b.dataset.v);if(!result.ok){toast("Не удалось восстановить эту копию","err");return}var loaded=STORAGE.load();S=loaded.state;storageBlocked=!loaded.ok;localOK=loaded.ok;if(loaded.ok){CLOUD.disable();CLOUD_CONSENT=false;try{localStorage.removeItem(CLOUD_CONSENT_KEY)}catch(_){}delete S.cloudConsent;delete S.cloudRevision;STORAGE.save(S);VER++}applyUI();setCS();go("rep",1);toast(loaded.ok?"Копия восстановлена; для облака потребуется новое согласие":"Копия восстановлена, но её формат требует проверки","ok")};
+ACT.restore=function(b){var result=STORAGE.restoreBackup(b.dataset.v);if(!result.ok){toast("Не удалось восстановить эту копию","err");return}var loaded=STORAGE.load();S=loaded.state;storageBlocked=!loaded.ok;localOK=loaded.ok;if(loaded.ok){CLOUD.disable();CLOUD_CONSENT=false;try{localStorage.removeItem(CLOUD_CONSENT_KEY)}catch(_){}delete S.cloudConsent;delete S.cloudRevision;delete S.cloudBase;STORAGE.save(S);VER++}applyUI();setCS();go("rep",1);toast(loaded.ok?"Копия восстановлена; для облака потребуется новое согласие":"Копия восстановлена, но её формат требует проверки","ok")};
 ACT.extreload=function(){var loaded=STORAGE.load();S=loaded.state;storageBlocked=!loaded.ok;localOK=loaded.ok;externalChange=false;migrationNotice=false;VER++;applyUI();setCS();go(tab,1);toast(loaded.ok?"Загружены свежие данные из другой вкладки":"Данные требуют проверки","ok")};
 ACT.extkeep=function(){if(!window.confirm("Заменить данные другой вкладки данными этой вкладки? Перед заменой будет создана локальная резервная копия."))return;var result=STORAGE.replaceState(S,"before-overwrite-external-change");if(!result.ok){toast("Не удалось создать резервную копию — данные не заменены","err");return}externalChange=false;localOK=true;setCS();go(tab,1);toast("Сохранена версия этой вкладки; прежние данные остались в точках восстановления","ok")};
 ACT.dlerr=function(){saveFile("opora-error-log.txt",OporaErrors.exportText(),"text/plain")};
@@ -126,28 +126,55 @@ ACT.cloudenable=function(){
  try{localStorage.setItem(CLOUD_CONSENT_KEY,"yes");CLOUD_CONSENT=true}catch(_){CLOUD.disable();toast("Не удалось сохранить согласие на этом устройстве","err");return}
  sv();go("rep",1);toast("Синхронизация разрешена. Отправка начнётся только после нажатия «Синхронизировать сейчас».","ok");
 };
+function cloudSnap(){var x=JSON.parse(JSON.stringify(S));delete x.cloudRevision;delete x.cloudConsent;delete x.cloudBase;return x}
+function cloudMergeText(st){var t="Данные слиты с облачной копией: добавлено "+st.added+", удалено "+st.removed+", обновлено полей "+st.updated+".";if(st.conflicts.length)t+=" Конфликтов: "+st.conflicts.length+" — оставлена версия этого устройства, прежние данные сохранены в точке восстановления.";return t}
 ACT.cloudsync=async function(){
- var snapshot=JSON.parse(JSON.stringify(S));delete snapshot.cloudRevision;delete snapshot.cloudConsent;
- var result=await CLOUD.sync(snapshot,S.cloudRevision==null?null:S.cloudRevision);
- if(result.ok){S.cloudRevision=result.revision;sv();go("rep",1);toast(result.unchanged?"Удалённая и локальная копии пусты":"Синхронизация завершена","ok");return}
- go("rep",1);toast(result.error==="revision-conflict"||result.error==="remote-available"?"Найдена другая облачная копия. Локальные данные не изменены.":"Не удалось синхронизировать: "+result.error,"err");
+ var v0=VER,snapshot=cloudSnap(),result=await CLOUD.sync(snapshot,S.cloudRevision==null?null:S.cloudRevision);
+ if(result.ok){S.cloudRevision=result.revision;S.cloudBase=OporaMerge.fingerprint(snapshot);sv();go("rep",1);toast(result.unchanged?"Удалённая и локальная копии пусты":"Синхронизация завершена","ok");return}
+ var merged=null,stats={added:0,removed:0,updated:0,conflicts:[]};
+ for(var attempt=0;attempt<3&&(result.error==="revision-conflict"||result.error==="remote-available")&&result.remoteSnapshot;attempt++){
+  var remote=STORAGE.previewImport(JSON.stringify(result.remoteSnapshot));
+  if(!remote.ok)break;
+  var m=OporaMerge.merge({base:S.cloudBase,local:snapshot,remote:remote.state,defaults:STORAGE.fresh()});
+  if(!m.ok)break;
+  stats.added+=m.stats.added;stats.removed+=m.stats.removed;stats.updated+=m.stats.updated;stats.conflicts=stats.conflicts.concat(m.stats.conflicts);
+  var revision=result.remoteRevision;
+  if(m.changedRemote){
+   var pushed=await CLOUD.sync(m.state,revision);
+   if(!pushed.ok){result=pushed;continue}
+   revision=pushed.revision;
+  }
+  merged={state:m.state,revision:revision,changedLocal:m.changedLocal};break;
+ }
+ if(merged){
+  if(VER!==v0){go("rep",1);toast("Облачная копия обновлена. Пока шла синхронизация, вы вносили правки: повторите синхронизацию, чтобы получить чужие записи.","ok");return}
+  var next=JSON.parse(JSON.stringify(merged.state));
+  if(merged.changedLocal){
+   next.cloudRevision=merged.revision;
+   var saved=STORAGE.replaceState(next,"before-cloud-merge");
+   if(!saved.ok){go("rep",1);toast("Облачная копия обновлена, но локальные данные заменить не удалось. Повторите синхронизацию.","err");return}
+   S=saved.state;VER++;applyUI();
+  }
+  S.cloudRevision=merged.revision;S.cloudBase=OporaMerge.fingerprint(merged.state);sv();setCS();go("rep",1);toast(cloudMergeText(stats),"ok");return;
+ }
+ go("rep",1);toast(result.error==="revision-conflict"||result.error==="remote-available"?"Не удалось слить с другой облачной копией. Локальные данные не изменены; можно восстановить облачную копию вручную.":"Не удалось синхронизировать: "+result.error,"err");
 };
 ACT.cloudrestore=function(){
  var remote=CLOUD.pendingRemote();if(!remote)return;
  if(!window.confirm("Заменить локальные данные удалённой копией? Перед заменой будет создана локальная резервная копия."))return;
  var result=STORAGE.replaceState(remote.snapshot,"before-cloud-restore");
  if(!result.ok){toast("Не удалось создать резервную копию или восстановить облачные данные","err");return}
- S=result.state;S.cloudRevision=remote.revision;sv();go("rep",1);toast("Удалённая копия восстановлена. Предыдущие локальные данные сохранены в backup.","ok");
+ S=result.state;S.cloudRevision=remote.revision;S.cloudBase=OporaMerge.fingerprint(result.state);sv();go("rep",1);toast("Удалённая копия восстановлена. Предыдущие локальные данные сохранены в backup.","ok");
 };
 ACT.clouddisable=function(){CLOUD.disable();CLOUD_CONSENT=false;try{localStorage.removeItem(CLOUD_CONSENT_KEY)}catch(_){}sv();go("rep",1);toast("Синхронизация отключена. Локальные данные сохранены.")};
 ACT.clouddelete=async function(){
  if(!window.confirm("Удалить только облачную копию? Локальные данные на этом устройстве останутся."))return;
  var result=await CLOUD.deleteRemote();
  if(!result.ok){toast("Не удалось удалить облачную копию: "+result.error,"err");return}
- CLOUD.disable();CLOUD_CONSENT=false;try{localStorage.removeItem(CLOUD_CONSENT_KEY)}catch(_){}S.cloudRevision=null;sv();go("rep",1);toast("Облачная копия удалена. Локальные данные сохранены.","ok");
+ CLOUD.disable();CLOUD_CONSENT=false;try{localStorage.removeItem(CLOUD_CONSENT_KEY)}catch(_){}S.cloudRevision=null;delete S.cloudBase;sv();go("rep",1);toast("Облачная копия удалена. Локальные данные сохранены.","ok");
 };
 ACT.cloudlogout=async function(){
  if(!window.confirm("Выйти из облачного аккаунта на этом устройстве?"))return;
- var result=await CLOUD.logout();CLOUD_CONSENT=false;try{localStorage.removeItem(CLOUD_CONSENT_KEY)}catch(_){}S.cloudRevision=null;sv();go("rep",1);
+ var result=await CLOUD.logout();CLOUD_CONSENT=false;try{localStorage.removeItem(CLOUD_CONSENT_KEY)}catch(_){}S.cloudRevision=null;delete S.cloudBase;sv();go("rep",1);
  toast(result.ok?"Вы вышли из облачного аккаунта":"Локальная сессия очищена; сервер не подтвердил выход",result.ok?"ok":"err");
 };

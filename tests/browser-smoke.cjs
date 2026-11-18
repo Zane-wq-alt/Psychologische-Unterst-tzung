@@ -232,3 +232,64 @@ test("browser WebCrypto round trip with production KDF settings and encrypted cl
   assert.doesNotMatch(html, /Синхронизировать сейчас/);
   assert.deepEqual(errors, []);
 });
+
+test("cloud sync merges a concurrent change from another device instead of reporting a conflict", async (t) => {
+  const browser = await chromium.launch({ headless: true });
+  t.after(() => browser.close());
+  const page = await (await browser.newContext()).newPage();
+  const errors = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.goto(origin, { waitUntil: "networkidle" });
+  await page.waitForFunction(() => document.querySelector("#v") && document.querySelector("#v").children.length > 0);
+
+  const out = await page.evaluate(async () => {
+    const row = { revision: 0, payload: {} };
+    const pushes = [];
+    const transport = {
+      configured: () => true,
+      pull: async () => ({ revision: row.revision, snapshot: JSON.parse(JSON.stringify(row.payload)) }),
+      push: async ({ snapshot, ifMatch }) => {
+        if (ifMatch !== row.revision) return { ok: false, conflict: true, revision: row.revision, snapshot: row.payload };
+        row.revision += 1; row.payload = JSON.parse(JSON.stringify(snapshot)); pushes.push(row.payload);
+        return { ok: true, conflict: false, revision: row.revision, snapshot };
+      }
+    };
+    const auth = { getSession: () => ({ user: { email: "a@b.c" } }), getAccessToken: async () => "t" };
+    window.CLOUD = OporaCloudController.create({ config: {}, auth, transport });
+    CLOUD.enable(true);
+
+    S.ci.push({ d: "2026-11-16", mood: 3, note: "общая" });
+    S.notes.push({ t: "удалю позже", d: "2026-11-16" });
+    await ACT.cloudsync();
+    const first = { revision: S.cloudRevision, hasBase: !!S.cloudBase };
+
+    // «другое устройство» добавило чек-ин и удалило заметку, это устройство добавило эпизод
+    row.revision += 1;
+    row.payload = Object.assign(JSON.parse(JSON.stringify(row.payload)), {
+      ci: row.payload.ci.concat([{ d: "2026-11-17", mood: 1, note: "с другого устройства" }]), notes: []
+    });
+    S.ep.push({ t: 1, d: "2026-11-17", ty: "перегруз" }); sv();
+    await ACT.cloudsync();
+
+    return {
+      first, revision: S.cloudRevision,
+      ci: S.ci.map((x) => x.note), notes: S.notes.length, ep: S.ep.length,
+      remoteCi: row.payload.ci.length, remoteEp: row.payload.ep.length,
+      leaked: pushes.some((p) => "cloudBase" in p || "cloudRevision" in p),
+      exported: STORAGE.exportText(S).includes("cloudBase"),
+      backups: STORAGE.listBackups().map((b) => b.reason),
+      stored: JSON.parse(localStorage.getItem("opora_v2_data_v1")).ci.length
+    };
+  });
+  assert.deepEqual(out.first, { revision: 1, hasBase: true });
+  assert.deepEqual(out.ci, ["общая", "с другого устройства"]);
+  assert.equal(out.notes, 0, "deletion from the other device propagated");
+  assert.equal(out.ep, 1);
+  assert.equal(out.remoteCi, 2);
+  assert.equal(out.remoteEp, 1, "merged result was pushed back");
+  assert.equal(out.leaked, false);
+  assert.equal(out.exported, false);
+  assert.ok(out.backups.includes("before-cloud-merge"));
+  assert.equal(out.stored, 2);
+  assert.deepEqual(errors, []);
+});
