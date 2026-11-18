@@ -40,7 +40,7 @@ test("round trip: only ciphertext reaches the server; passphrase and recovery ke
   const vault = await Crypto.createVault(PASS, FAST);
   const envelope = await Crypto.encryptSnapshot(vault.dek, vault.wraps, secret);
   const wire = JSON.stringify(envelope);
-  assert.doesNotMatch(wire, /личная|Аня|mood|ci/);
+  assert.doesNotMatch(wire, /личная|Аня|mood|"ci"/); // не искать голое "ci": оно случайно встречается в base64
   assert.equal(envelope.format, "opora-e2e");
 
   const viaPass = await Crypto.unlockWithPassphrase(envelope.wraps, PASS);
