@@ -125,6 +125,9 @@
     var migrationMarkerKey = options.migrationMarkerKey || (key + "_migration_complete");
     var defaults = options.defaults || {};
     var storage = options.storage || null;
+    // Сколько точек восстановления хранить автоматически. Копии перед миграцией
+    // (исходные данные прежней версии) не удаляются никогда.
+    var maxBackups = Number.isInteger(options.maxBackups) && options.maxBackups >= 1 ? options.maxBackups : 10;
     if (!storage) {
       try { if (typeof localStorage !== "undefined") storage = localStorage; } catch (_) {}
     }
@@ -223,7 +226,25 @@
           verified.sourceKey !== key || verified.raw !== raw) {
         throw new Error("backup-verification-failed");
       }
+      pruneBackups(backupKey);
       return backupKey;
+    }
+
+    var PROTECTED_REASONS = ["namespace-migration", "schema-migration"];
+
+    // Оставляет новейшие maxBackups обычных точек восстановления; миграционные и нечитаемые
+    // копии не трогает. Сбой удаления не считается ошибкой записи данных.
+    function pruneBackups(justCreated) {
+      try {
+        var removable = listBackups().filter(function (item) {
+          return item.key !== justCreated && PROTECTED_REASONS.indexOf(item.reason) === -1 &&
+            item.reason !== "unreadable-backup";
+        });
+        // listBackups() отсортирован от новых к старым; новая копия (justCreated) занимает одно место
+        removable.slice(Math.max(0, maxBackups - 1)).forEach(function (item) {
+          try { storage.removeItem(item.key); } catch (_) { /* оставляем копию */ }
+        });
+      } catch (_) { /* прореживание необязательно */ }
     }
 
     function rollbackRaw(oldRaw) {

@@ -293,3 +293,28 @@ test("cloud sync merges a concurrent change from another device instead of repor
   assert.equal(out.stored, 2);
   assert.deepEqual(errors, []);
 });
+
+test("stickers load from files and are served from the offline cache", async (t) => {
+  const browser = await chromium.launch({ headless: true });
+  t.after(() => browser.close());
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  const failed = [];
+  page.on("response", (response) => { if (response.url().includes("/assets/stickers/") && !response.ok()) failed.push(response.url()); });
+  await page.goto(origin, { waitUntil: "networkidle" });
+  await page.waitForFunction(() => document.querySelector("#v") && document.querySelector("#v").children.length > 0);
+  await page.waitForFunction(() => navigator.serviceWorker && navigator.serviceWorker.ready.then(() => true));
+  const shown = await page.evaluate(() => Promise.all(Array.from(document.querySelectorAll("img.stk")).map((img) =>
+    img.complete ? img.naturalWidth > 0 : new Promise((resolve) => { img.onload = () => resolve(true); img.onerror = () => resolve(false); }))));
+  assert.ok(shown.length > 0, "at least one sticker is visible on the first screen");
+  assert.ok(shown.every(Boolean), "all visible stickers decode");
+  assert.deepEqual(failed, []);
+
+  const cached = await page.evaluate(async () => {
+    const names = Object.values(STK);
+    const cache = await caches.open((await caches.keys()).find((key) => key.startsWith("opora-")));
+    const hits = await Promise.all(names.map((name) => cache.match(name)));
+    return { total: names.length, cached: hits.filter(Boolean).length };
+  });
+  assert.equal(cached.cached, cached.total, "all stickers are in the offline cache");
+});

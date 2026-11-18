@@ -496,3 +496,37 @@ test("export and import never carry cloud consent or account revision metadata",
   assert.equal(Object.hasOwn(preview.state, "cloudRevision"), false);
   assert.equal(Object.hasOwn(preview.state, "cloudConsent"), false);
 });
+
+test("automatic restore points are capped, newest kept, migration copies never pruned", () => {
+  const raw = fixture("legacy-full.json").trim();
+  const storage = memoryStorage({ opora_v2: raw });
+  const db = OporaStorage.create({ key: "opora_v2_data_v1", legacyKey: "opora_v2", defaults, storage, maxBackups: 3 });
+  const loaded = db.load();
+  assert.equal(loaded.status, "migrated");
+  const migrationBackup = loaded.backupKey;
+
+  let last;
+  for (let i = 0; i < 8; i += 1) {
+    const state = db.load().state;
+    state.notes = [{ t: "n" + i }];
+    last = db.replaceState(state, "before-import");
+    assert.equal(last.ok, true);
+  }
+  const keys = db.listBackups();
+  const ordinary = keys.filter((b) => b.reason === "before-import");
+  assert.equal(ordinary.length, 3, "only the newest ordinary restore points remain");
+  assert.ok(keys.some((b) => b.key === last.backupKey), "the restore point just created is kept");
+  assert.ok(keys.some((b) => b.key === migrationBackup), "the migration backup is never pruned");
+  assert.equal(JSON.parse(storage.getItem(last.backupKey)).raw !== undefined, true);
+  assert.equal(db.load().ok, true);
+});
+
+test("default retention keeps ten ordinary restore points", () => {
+  const storage = memoryStorage();
+  const db = OporaStorage.create({ key: "k", defaults, storage });
+  db.load();
+  const state = db.fresh();
+  db.save(state);
+  for (let i = 0; i < 15; i += 1) { state.notes = [{ t: String(i) }]; assert.equal(db.replaceState(state, "x").ok, true); }
+  assert.equal(db.listBackups().length, 10);
+});
