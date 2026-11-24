@@ -21,16 +21,19 @@
 См. docs/ARCHITECTURE.md, docs/OPORA_V2_AUDIT.md, docs/OPORA_V2_FOUNDATION.md, docs/OPORA_V2_STATUS.md и docs/CLOUD_SYNC_BACKEND.md.
 
 ## Статус
-Работа ведётся в ветке opora-v2-development. main не изменялась. Runtime разделён на упорядоченные файлы; переход с глобальных classic scripts на ES modules, настройка реального облачного backend и ручные проверки PWA/устройств остаются следующими задачами.
+Работа ведётся в ветке opora-v2-development. main не изменялась. Runtime разделён на упорядоченные файлы; переход с глобальных classic scripts на ES modules, настройка реального облачного backend и ручные проверки PWA/устройств остаются следующими задачами. Миграция в `opora_v2_data_v1` реализована; перенос на живом профиле не проверялся.
 
 ## Проверки
 
 - Логика хранения и облачного транспорта: `npm test` (Node.js tests).
 - Браузерные smoke tests: `npm install`, `npx playwright install chromium`, затем `npm run test:browser`.
-- CI запускает синтаксическую проверку, 60 unit tests и 2 Chromium browser smoke tests (старт приложения, подтверждённый импорт, Service Worker и загрузка app shell offline).
+- Последний подтверждённый CI (2026-11-24): синтаксическая проверка, 117 unit tests и 9 Chromium browser smoke tests; [run 45360837437](https://github.com/Zane-wq-alt/Psychologische-Unterst-tzung/actions/runs/45360837437).
 - Browser tests используют отдельный временный профиль; реальные пользовательские данные не затрагиваются.
 
 
 ## Облако (необязательно)
 
 По умолчанию приложение работает локально. Для будущего подключения используется Supabase Auth по magic link и отдельное явное согласие на передачу дневника, профиля, планов, рутин и записей. Синхронизация запускается вручную; конфликт не перезаписывает данные автоматически. Пока публичные параметры Supabase в src/storage/supabase-config.js пусты, приложение не отправляет сетевые запросы.
+
+
+Проверка актуального состояния ветки `opora-v2-development` выполнена 2026-11-24. `main` не изменён; merge и release не выполнялись.
