@@ -109,3 +109,10 @@
 - Первый sync не перезаписывает существующий remote без известной ревизии; пустой remote допускает CAS bootstrap.
 - Service Worker использует user-confirmed activation и не подменяет отсутствующие JS/CSS/ресурсы HTML-документом.
 - Ручные проверки браузера и двух отдельных Supabase аккаунтов остаются обязательными перед заявлением о полном завершении PWA/cloud.
+
+
+## Актуализация аудита — 2026-11-24
+
+Старые пункты аудита выше являются историческими и отражают состояние на дату соответствующего раздела. На текущей ветке реализована двухфазная копирующая миграция из `opora_v2` в `opora_v2_data_v1` с проверяемой backup-копией, read-back сверкой, marker и сохранением legacy source; импорт включает preview/confirmation, восстановление валидирует backup, а fixtures покрывают legacy/full/partial и malformed cases.
+
+Последний подтверждённый CI: [45360837437](https://github.com/Zane-wq-alt/Psychologische-Unterst-tzung/actions/runs/45360837437), коммит [`423acdf`](https://github.com/Zane-wq-alt/Psychologische-Unterst-tzung/commit/423acdf776d9143dad46266b484069fff6b098e8): syntax check passed, 117 unit tests passed, 9 Chromium browser tests passed, 0 failures. Не проверялись живой профиль, ручной Android/iOS, реальный Supabase с двумя аккаунтами. Не выполнять тестовую миграцию на пользовательских данных.
