@@ -94,7 +94,13 @@ test("PWA installs its service worker and the app shell reloads from cache offli
 test("unconfigured cloud stays local-only and makes no external requests", async (t) => {
   const browser = await chromium.launch({ headless: true });
   t.after(() => browser.close());
-  const page = await browser.newPage();
+  const context = await browser.newContext({ serviceWorkers: "block" });
+  const page = await context.newPage();
+  // The repository config now holds the owner's public Supabase settings, so force the empty config here.
+  await page.route("**/src/storage/supabase-config.js", (route) => route.fulfill({
+    contentType: "text/javascript; charset=utf-8",
+    body: 'window.OPORA_SUPABASE_CONFIG = { url: "", anonKey: "" };'
+  }));
   const externalRequests = [];
   page.on("request", (request) => {
     if (new URL(request.url()).origin !== origin) externalRequests.push(request.url());
@@ -103,6 +109,23 @@ test("unconfigured cloud stays local-only and makes no external requests", async
   await page.evaluate(() => go("rep"));
   await page.locator("#opora-cloud-title").waitFor();
   assert.match(await page.locator("#v").innerText(), /Backend не настроен/);
+  assert.deepEqual(externalRequests, []);
+});
+
+test("configured cloud sends nothing to the network until the user signs in and consents", async (t) => {
+  const browser = await chromium.launch({ headless: true });
+  t.after(() => browser.close());
+  const context = await browser.newContext({ serviceWorkers: "block" });
+  const page = await context.newPage();
+  const externalRequests = [];
+  page.on("request", (request) => {
+    if (new URL(request.url()).origin !== origin) externalRequests.push(request.url());
+  });
+  await page.goto(origin, { waitUntil: "networkidle" });
+  assert.match(await page.evaluate(() => window.OPORA_SUPABASE_CONFIG.url), /^https:\/\/[a-z0-9]+\.supabase\.co$/);
+  await page.evaluate(() => go("rep"));
+  await page.locator("#opora-cloud-title").waitFor();
+  assert.doesNotMatch(await page.locator("#v").innerText(), /Backend не настроен/);
   assert.deepEqual(externalRequests, []);
 });
 
